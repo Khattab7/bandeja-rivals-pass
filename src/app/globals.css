@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand-blue: #0D5FD6;
+  --color-brand-green: #8CF702;
+  --color-brand-black: #000000;
+  --color-brand-white: #FFFFFF;
+  --color-brand-dark: #0a0a0a;
+  --color-brand-dark-card: #111111;
+  --color-brand-dark-surface: #1a1a1a;
+
+  --font-gobold: "Gobold", "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@font-face {
+  font-family: "Gobold";
+  src: url("/fonts/Gobold-Regular.otf") format("opentype"),
+       url("/fonts/Gobold-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Gobold";
+  src: url("/fonts/Gobold-Bold.otf") format("opentype"),
+       url("/fonts/Gobold-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Gobold";
+  src: url("/fonts/Gobold-Thin.otf") format("opentype"),
+       url("/fonts/Gobold-Thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Gobold", "Barlow Condensed", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #8CF702;
+  border-radius: 2px;
 }
