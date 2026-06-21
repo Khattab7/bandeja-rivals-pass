@@ -29,9 +29,8 @@ const COUNTRY_CODES = [
   { code: "+91",  flag: "🇮🇳", name: "India",         digits: 10 },
 ];
 
-const labelStyle = {
-  fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif",
-};
+const gobold = { fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif" };
+const inter = { fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" };
 
 export default function SignupPage() {
   const router = useRouter();
@@ -111,26 +110,26 @@ export default function SignupPage() {
   }
 
   const inputClass =
-    "w-full bg-transparent border border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors";
+    "w-full bg-transparent border border-white/40 text-white placeholder-white/40 px-4 py-3 text-sm outline-none focus:border-white transition-colors rounded-none";
 
   return (
     <div className="min-h-screen bg-brand-blue flex flex-col items-center justify-center px-6 py-12">
       {/* Logo */}
       <div className="mb-8 flex flex-col items-center">
         <BandejaLogo width={180} height={44} />
-        <p className="text-brand-green text-xs tracking-widest uppercase text-center mt-2" style={labelStyle}>
+        <p className="text-brand-green text-xs tracking-widest uppercase text-center mt-2" style={gobold}>
           RIVALS PASS
         </p>
       </div>
 
       <div className="w-full max-w-sm">
-        <h1 className="text-white text-xl text-center mb-6 tracking-wide uppercase" style={labelStyle}>
+        <h1 className="text-white text-xl text-center mb-6 tracking-wide uppercase" style={gobold}>
           Create Account
         </h1>
 
         <form onSubmit={handleSignup} className="space-y-3">
           <div className="border-b border-brand-green pb-1 mb-4">
-            <span className="text-brand-green text-xs tracking-widest uppercase" style={labelStyle}>
+            <span className="text-brand-green text-xs tracking-widest uppercase" style={gobold}>
               Your Data
             </span>
           </div>
@@ -143,17 +142,17 @@ export default function SignupPage() {
             onChange={handleChange}
             required
             className={inputClass}
-            style={labelStyle}
+            style={inter}
           />
           <input
             name="email"
             type="email"
-            placeholder="Email"
+            placeholder="Email address"
             value={form.email}
             onChange={handleChange}
             required
             className={inputClass}
-            style={labelStyle}
+            style={inter}
           />
 
           {/* Phone field: country code + number */}
@@ -163,7 +162,7 @@ export default function SignupPage() {
                 value={countryCode}
                 onChange={handleCountryChange}
                 className="bg-brand-blue border border-white/40 text-white text-sm outline-none focus:border-white transition-colors px-2 py-3 flex-shrink-0"
-                style={{ ...labelStyle, minWidth: "110px", borderColor: phoneError ? "#f87171" : undefined }}
+                style={{ ...inter, minWidth: "110px", borderColor: phoneError ? "#f87171" : undefined }}
               >
                 {COUNTRY_CODES.map((c) => (
                   <option key={c.code} value={c.code} style={{ background: "#0D5FD6" }}>
@@ -178,12 +177,12 @@ export default function SignupPage() {
                 value={form.phoneNumber}
                 onChange={handleChange}
                 required
-                className="flex-1 bg-transparent border border-l-0 border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
-                style={{ ...labelStyle, borderColor: phoneError ? "#f87171" : undefined }}
+                className="flex-1 bg-transparent border border-l-0 border-white/40 text-white placeholder-white/40 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
+                style={{ ...inter, borderColor: phoneError ? "#f87171" : undefined }}
               />
             </div>
             {phoneError && (
-              <p className="text-red-400 text-[10px] tracking-wide" style={labelStyle}>{phoneError}</p>
+              <p className="text-red-400 text-xs" style={inter}>{phoneError}</p>
             )}
           </div>
 
@@ -196,7 +195,7 @@ export default function SignupPage() {
             required
             minLength={8}
             className={inputClass}
-            style={labelStyle}
+            style={inter}
           />
           <input
             name="confirmPassword"
@@ -206,31 +205,31 @@ export default function SignupPage() {
             onChange={handleChange}
             required
             className={inputClass}
-            style={labelStyle}
+            style={inter}
           />
 
-          <p className="text-white/40 text-xs text-center pt-1" style={labelStyle}>
+          <p className="text-white/40 text-xs text-center pt-1" style={inter}>
             By signing up you agree to our Terms and Conditions of Use
           </p>
 
           {error && (
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-red-400 text-sm text-center" style={inter}>{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-white text-brand-blue py-3 text-sm tracking-widest uppercase font-bold disabled:opacity-60 transition-opacity mt-2"
-            style={labelStyle}
+            style={gobold}
           >
             {loading ? "CREATING ACCOUNT..." : "SAVE"}
           </button>
         </form>
 
-        <p className="text-white/60 text-xs text-center mt-6 tracking-wider uppercase" style={labelStyle}>
+        <p className="text-white/60 text-sm text-center mt-6" style={inter}>
           Already have an account?{" "}
-          <Link href="/login" className="text-brand-green hover:underline underline-offset-2">
-            SIGN IN
+          <Link href="/login" className="text-brand-green hover:underline underline-offset-2 font-medium">
+            Sign in
           </Link>
         </p>
       </div>

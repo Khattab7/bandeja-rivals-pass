@@ -32,37 +32,34 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  const gobold = { fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif" };
+  const inter = { fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" };
+
   return (
     <div className="min-h-screen bg-brand-blue flex flex-col items-center justify-center px-6">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center">
         <BandejaLogo width={180} height={44} />
-        <p
-          className="text-brand-green text-xs tracking-widest uppercase text-center mt-2"
-          style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
-        >
+        <p className="text-brand-green text-xs tracking-widest uppercase text-center mt-2" style={gobold}>
           RIVALS PASS
         </p>
       </div>
 
       {/* Card */}
       <div className="w-full max-w-sm">
-        <h1
-          className="text-white text-xl text-center mb-6 tracking-wide uppercase"
-          style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
-        >
+        <h1 className="text-white text-xl text-center mb-6 tracking-wide uppercase" style={gobold}>
           Sign In
         </h1>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full bg-transparent border border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
-            style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
+            className="w-full bg-transparent border border-white/40 text-white placeholder-white/40 px-4 py-3 text-sm outline-none focus:border-white transition-colors rounded-none"
+            style={inter}
           />
           <input
             type="password"
@@ -70,31 +67,28 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full bg-transparent border border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
-            style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
+            className="w-full bg-transparent border border-white/40 text-white placeholder-white/40 px-4 py-3 text-sm outline-none focus:border-white transition-colors rounded-none"
+            style={inter}
           />
 
           {error && (
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-red-400 text-sm text-center" style={inter}>{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-white text-brand-blue py-3 text-sm tracking-widest uppercase font-bold disabled:opacity-60 transition-opacity"
-            style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
+            style={gobold}
           >
             {loading ? "SIGNING IN..." : "LOGIN"}
           </button>
         </form>
 
-        <p
-          className="text-white/60 text-xs text-center mt-8 tracking-wider uppercase"
-          style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
-        >
+        <p className="text-white/60 text-sm text-center mt-8" style={inter}>
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-brand-green underline-offset-2 hover:underline">
-            CREATE AN ACCOUNT
+          <Link href="/signup" className="text-brand-green underline-offset-2 hover:underline font-medium">
+            Create an account
           </Link>
         </p>
       </div>
