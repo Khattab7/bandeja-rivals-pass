@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import { createClient } from "@/lib/supabase/client";
 import type { Member, ApprovedPhone } from "@/lib/types";
 import BandejaLogo from "@/components/BandejaLogo";
@@ -125,16 +126,32 @@ export default function AdminPanel({
     setPhoneError(null);
     setPhoneLoading(true);
 
-    const text = await file.text();
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#"));
+    let records: { phone: string; name: string | null }[] = [];
 
-    const records = rows.map((row) => {
-      const [phone, name] = row.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
-      return { phone, name: name || null };
-    }).filter((r) => r.phone);
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+
+    if (isExcel) {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
+      records = rows
+        .map((row) => ({
+          phone: String(row[0] ?? "").trim(),
+          name: row[1] ? String(row[1]).trim() : null,
+        }))
+        .filter((r) => r.phone);
+    } else {
+      const text = await file.text();
+      const rows = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+      records = rows.map((row) => {
+        const [phone, name] = row.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+        return { phone, name: name || null };
+      }).filter((r) => r.phone);
+    }
 
     if (records.length === 0) {
       setPhoneError("No valid phone numbers found in the file.");
@@ -258,8 +275,8 @@ export default function AdminPanel({
                 BULK IMPORT FROM CSV
               </p>
               <p className="text-white/30 text-[9px] mb-3 leading-relaxed" style={font}>
-                One row per number. Format: <span className="text-white/50">phone,name</span> — name is optional.
-                <br />Example: <span className="text-white/50">+971501234567,Ahmed Al Rashid</span>
+                Upload a CSV or Excel file. One row per number — Column A: phone, Column B: name (optional).
+                <br />Example: <span className="text-white/50">+971501234567</span> | <span className="text-white/50">Ahmed Al Rashid</span>
               </p>
               <label
                 className="flex items-center justify-center gap-2 border border-dashed border-white/20 px-4 py-3 cursor-pointer hover:border-brand-green/50 transition-colors"
@@ -269,11 +286,11 @@ export default function AdminPanel({
                   <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
                 </svg>
                 <span className="text-white/40 text-[10px] tracking-widest uppercase" style={font}>
-                  {phoneLoading ? "IMPORTING..." : "CHOOSE CSV FILE"}
+                  {phoneLoading ? "IMPORTING..." : "CHOOSE CSV OR EXCEL FILE"}
                 </span>
                 <input
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".csv,.xlsx,.xls,text/csv"
                   onChange={handleCsvImport}
                   disabled={phoneLoading}
                   className="sr-only"
