@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "passTypeIdentifier": "pass.tech.gametheory.bandeja.rivalspass",
+  "serialNumber": "PLACEHOLDER",
+  "teamIdentifier": "NWWB5U3K4T",
+  "organizationName": "Bandeja",
+  "description": "Bandeja Rivals Pass",
+  "logoText": "RIVALS PASS",
+  "foregroundColor": "rgb(140, 247, 2)",
+  "backgroundColor": "rgb(13, 13, 13)",
+  "labelColor": "rgb(200, 200, 200)",
+  "generic": {}
+}
