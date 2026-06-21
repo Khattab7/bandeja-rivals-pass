@@ -18,10 +18,10 @@ export default async function AdminPage() {
 
   if (!isAdmin) redirect("/pass");
 
-  const { data: members } = await supabase
-    .from("members")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const [{ data: members }, { data: approvedPhones }] = await Promise.all([
+    supabase.from("members").select("*").order("created_at", { ascending: false }),
+    supabase.from("approved_phones").select("*").order("created_at", { ascending: false }),
+  ]);
 
-  return <AdminPanel members={members ?? []} />;
+  return <AdminPanel members={members ?? []} approvedPhones={approvedPhones ?? []} />;
 }

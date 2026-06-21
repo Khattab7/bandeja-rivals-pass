@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Member } from "@/lib/types";
+import type { Member, ApprovedPhone } from "@/lib/types";
 import BandejaLogo from "@/components/BandejaLogo";
 
 const font = {
@@ -16,7 +16,13 @@ function formatDate(dateStr: string) {
     .replace(",", "");
 }
 
-export default function AdminPanel({ members: initial }: { members: Member[] }) {
+export default function AdminPanel({
+  members: initial,
+  approvedPhones: initialPhones,
+}: {
+  members: Member[];
+  approvedPhones: ApprovedPhone[];
+}) {
   const supabase = createClient();
   const [members, setMembers] = useState<Member[]>(initial);
   const [loading, setLoading] = useState<string | null>(null);
@@ -24,6 +30,14 @@ export default function AdminPanel({ members: initial }: { members: Member[] }) 
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
+
+  // Approved phones state
+  const [approvedPhones, setApprovedPhones] = useState<ApprovedPhone[]>(initialPhones);
+  const [newPhone, setNewPhone] = useState("");
+  const [newPhoneName, setNewPhoneName] = useState("");
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"members" | "phones">("members");
 
   async function toggleActive(member: Member) {
     setLoading(member.id);
@@ -72,6 +86,37 @@ export default function AdminPanel({ members: initial }: { members: Member[] }) 
     setLoading(null);
   }
 
+  async function addApprovedPhone(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newPhone.trim()) return;
+    setPhoneLoading(true);
+    setPhoneError(null);
+
+    const { data, error } = await supabase
+      .from("approved_phones")
+      .insert({ phone: newPhone.trim(), name: newPhoneName.trim() || null })
+      .select()
+      .single();
+
+    if (error) {
+      setPhoneError(error.message.includes("unique") ? "This phone number is already in the list." : error.message);
+    } else if (data) {
+      setApprovedPhones((prev) => [data as ApprovedPhone, ...prev]);
+      setNewPhone("");
+      setNewPhoneName("");
+    }
+    setPhoneLoading(false);
+  }
+
+  async function removeApprovedPhone(id: string) {
+    setPhoneLoading(true);
+    const { error } = await supabase.from("approved_phones").delete().eq("id", id);
+    if (!error) {
+      setApprovedPhones((prev) => prev.filter((p) => p.id !== id));
+    }
+    setPhoneLoading(false);
+  }
+
   const filtered = members.filter(
     (m) =>
       m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -95,11 +140,101 @@ export default function AdminPanel({ members: initial }: { members: Member[] }) 
       </header>
 
       <main className="px-4 py-6 max-w-5xl mx-auto">
+        {/* Tabs */}
+        <div className="flex border-b border-white/10 mb-6">
+          {(["members", "phones"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="px-5 py-2.5 text-[10px] tracking-widest uppercase transition-colors"
+              style={{
+                ...font,
+                color: activeTab === tab ? "#8CF702" : "rgba(255,255,255,0.3)",
+                borderBottom: activeTab === tab ? "2px solid #8CF702" : "2px solid transparent",
+              }}
+            >
+              {tab === "members" ? "MEMBERS" : "PRE-APPROVED PHONES"}
+            </button>
+          ))}
+        </div>
+
         {actionError && (
           <div className="border border-red-500/40 bg-red-500/10 text-red-400 text-xs px-4 py-3 mb-4" style={font}>
             {actionError}
           </div>
         )}
+
+        {activeTab === "phones" ? (
+          <div className="max-w-lg">
+            <p className="text-white/40 text-[10px] tracking-wider mb-4" style={font}>
+              Players who sign up with a pre-approved phone number will have their pass activated automatically.
+            </p>
+
+            {/* Add phone form */}
+            <form onSubmit={addApprovedPhone} className="flex flex-col gap-2 mb-6">
+              <input
+                type="tel"
+                placeholder="Phone number (e.g. +971501234567)"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                required
+                className="w-full bg-transparent border border-white/20 text-white placeholder-white/30 px-4 py-2.5 text-sm outline-none focus:border-brand-green transition-colors"
+                style={font}
+              />
+              <input
+                type="text"
+                placeholder="Label / name (optional)"
+                value={newPhoneName}
+                onChange={(e) => setNewPhoneName(e.target.value)}
+                className="w-full bg-transparent border border-white/20 text-white placeholder-white/30 px-4 py-2.5 text-sm outline-none focus:border-brand-green transition-colors"
+                style={font}
+              />
+              {phoneError && (
+                <p className="text-red-400 text-xs" style={font}>{phoneError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={phoneLoading || !newPhone.trim()}
+                className="w-full border border-brand-green text-brand-green py-2.5 text-[10px] tracking-widest uppercase disabled:opacity-40 hover:bg-brand-green/10 transition-colors"
+                style={font}
+              >
+                {phoneLoading ? "..." : "ADD PHONE"}
+              </button>
+            </form>
+
+            {/* Approved phones list */}
+            <div className="space-y-2">
+              {approvedPhones.length === 0 && (
+                <p className="text-white/20 text-center py-8 text-xs tracking-wider" style={font}>
+                  NO PRE-APPROVED PHONES YET
+                </p>
+              )}
+              {approvedPhones.map((p) => (
+                <div
+                  key={p.id}
+                  className="border border-white/10 px-4 py-3 flex items-center justify-between"
+                  style={{ background: "#111" }}
+                >
+                  <div>
+                    <p className="text-white text-sm font-bold" style={font}>{p.phone}</p>
+                    {p.name && (
+                      <p className="text-white/40 text-[9px] mt-0.5" style={font}>{p.name}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeApprovedPhone(p.id)}
+                    disabled={phoneLoading}
+                    className="text-red-400/60 text-[9px] tracking-widest hover:text-red-400 transition-colors disabled:opacity-40"
+                    style={font}
+                  >
+                    REMOVE
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Search */}
         <input
           type="text"
@@ -133,6 +268,7 @@ export default function AdminPanel({ members: initial }: { members: Member[] }) 
               NO MEMBERS FOUND
             </p>
           )}
+
           {filtered.map((member) => (
             <div
               key={member.id}
@@ -246,6 +382,8 @@ export default function AdminPanel({ members: initial }: { members: Member[] }) 
             </div>
           ))}
         </div>
+          </>
+        )}
       </main>
     </div>
   );
