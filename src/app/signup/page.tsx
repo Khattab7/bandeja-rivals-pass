@@ -7,26 +7,26 @@ import { createClient } from "@/lib/supabase/client";
 import BandejaLogo from "@/components/BandejaLogo";
 
 const COUNTRY_CODES = [
-  { code: "+971", flag: "🇦🇪", name: "UAE" },
-  { code: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
-  { code: "+974", flag: "🇶🇦", name: "Qatar" },
-  { code: "+965", flag: "🇰🇼", name: "Kuwait" },
-  { code: "+973", flag: "🇧🇭", name: "Bahrain" },
-  { code: "+968", flag: "🇴🇲", name: "Oman" },
-  { code: "+20",  flag: "🇪🇬", name: "Egypt" },
-  { code: "+962", flag: "🇯🇴", name: "Jordan" },
-  { code: "+961", flag: "🇱🇧", name: "Lebanon" },
-  { code: "+212", flag: "🇲🇦", name: "Morocco" },
-  { code: "+213", flag: "🇩🇿", name: "Algeria" },
-  { code: "+216", flag: "🇹🇳", name: "Tunisia" },
-  { code: "+44",  flag: "🇬🇧", name: "UK" },
-  { code: "+1",   flag: "🇺🇸", name: "USA / Canada" },
-  { code: "+33",  flag: "🇫🇷", name: "France" },
-  { code: "+49",  flag: "🇩🇪", name: "Germany" },
-  { code: "+34",  flag: "🇪🇸", name: "Spain" },
-  { code: "+90",  flag: "🇹🇷", name: "Turkey" },
-  { code: "+92",  flag: "🇵🇰", name: "Pakistan" },
-  { code: "+91",  flag: "🇮🇳", name: "India" },
+  { code: "+20",  flag: "🇪🇬", name: "Egypt",        digits: 10 },
+  { code: "+971", flag: "🇦🇪", name: "UAE",           digits: 9  },
+  { code: "+966", flag: "🇸🇦", name: "Saudi Arabia",  digits: 9  },
+  { code: "+974", flag: "🇶🇦", name: "Qatar",         digits: 8  },
+  { code: "+965", flag: "🇰🇼", name: "Kuwait",        digits: 8  },
+  { code: "+973", flag: "🇧🇭", name: "Bahrain",       digits: 8  },
+  { code: "+968", flag: "🇴🇲", name: "Oman",          digits: 8  },
+  { code: "+962", flag: "🇯🇴", name: "Jordan",        digits: 9  },
+  { code: "+961", flag: "🇱🇧", name: "Lebanon",       digits: 8  },
+  { code: "+212", flag: "🇲🇦", name: "Morocco",       digits: 9  },
+  { code: "+213", flag: "🇩🇿", name: "Algeria",       digits: 9  },
+  { code: "+216", flag: "🇹🇳", name: "Tunisia",       digits: 8  },
+  { code: "+44",  flag: "🇬🇧", name: "UK",            digits: 10 },
+  { code: "+1",   flag: "🇺🇸", name: "USA / Canada",  digits: 10 },
+  { code: "+33",  flag: "🇫🇷", name: "France",        digits: 9  },
+  { code: "+49",  flag: "🇩🇪", name: "Germany",       digits: 10 },
+  { code: "+34",  flag: "🇪🇸", name: "Spain",         digits: 9  },
+  { code: "+90",  flag: "🇹🇷", name: "Turkey",        digits: 10 },
+  { code: "+92",  flag: "🇵🇰", name: "Pakistan",      digits: 10 },
+  { code: "+91",  flag: "🇮🇳", name: "India",         digits: 10 },
 ];
 
 const labelStyle = {
@@ -44,12 +44,33 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
   });
-  const [countryCode, setCountryCode] = useState("+971");
+  const [countryCode, setCountryCode] = useState("+20");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const selectedCountry = COUNTRY_CODES.find((c) => c.code === countryCode)!;
+
+  function validatePhone(number: string, code: string) {
+    const country = COUNTRY_CODES.find((c) => c.code === code);
+    if (!country) return null;
+    const digits = number.replace(/\D/g, "").replace(/^0+/, "");
+    if (digits.length !== country.digits) {
+      return `${country.name} numbers must be ${country.digits} digits after the country code.`;
+    }
+    return null;
+  }
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (e.target.name === "phoneNumber") {
+      setPhoneError(validatePhone(e.target.value, countryCode));
+    }
+  }
+
+  function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setCountryCode(e.target.value);
+    setPhoneError(validatePhone(form.phoneNumber, e.target.value));
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -61,14 +82,15 @@ export default function SignupPage() {
       return;
     }
 
-    if (!form.phoneNumber.trim()) {
-      setError("Please enter your phone number.");
+    const phoneValidationError = validatePhone(form.phoneNumber, countryCode);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
       return;
     }
 
     setLoading(true);
 
-    const fullPhone = countryCode + form.phoneNumber.replace(/^0+/, "").trim();
+    const fullPhone = countryCode + form.phoneNumber.replace(/\D/g, "").replace(/^0+/, "");
 
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
@@ -135,29 +157,34 @@ export default function SignupPage() {
           />
 
           {/* Phone field: country code + number */}
-          <div className="flex gap-0">
-            <select
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-              className="bg-brand-blue border border-white/40 text-white text-sm outline-none focus:border-white transition-colors px-2 py-3 flex-shrink-0"
-              style={{ ...labelStyle, minWidth: "110px" }}
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c.code} value={c.code} style={{ background: "#0D5FD6" }}>
-                  {c.flag} {c.code}
-                </option>
-              ))}
-            </select>
-            <input
-              name="phoneNumber"
-              type="tel"
-              placeholder="Phone number"
-              value={form.phoneNumber}
-              onChange={handleChange}
-              required
-              className="flex-1 bg-transparent border border-l-0 border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
-              style={labelStyle}
-            />
+          <div className="flex flex-col gap-1">
+            <div className="flex">
+              <select
+                value={countryCode}
+                onChange={handleCountryChange}
+                className="bg-brand-blue border border-white/40 text-white text-sm outline-none focus:border-white transition-colors px-2 py-3 flex-shrink-0"
+                style={{ ...labelStyle, minWidth: "110px", borderColor: phoneError ? "#f87171" : undefined }}
+              >
+                {COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code} style={{ background: "#0D5FD6" }}>
+                    {c.flag} {c.code}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="phoneNumber"
+                type="tel"
+                placeholder={`${selectedCountry.digits} digits`}
+                value={form.phoneNumber}
+                onChange={handleChange}
+                required
+                className="flex-1 bg-transparent border border-l-0 border-white/40 text-white placeholder-white/50 px-4 py-3 text-sm outline-none focus:border-white transition-colors"
+                style={{ ...labelStyle, borderColor: phoneError ? "#f87171" : undefined }}
+              />
+            </div>
+            {phoneError && (
+              <p className="text-red-400 text-[10px] tracking-wide" style={labelStyle}>{phoneError}</p>
+            )}
           </div>
 
           <input
