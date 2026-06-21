@@ -38,6 +38,7 @@ export default function AdminPanel({
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "phones">("members");
+  const [csvResult, setCsvResult] = useState<{ added: number; skipped: number } | null>(null);
 
   async function toggleActive(member: Member) {
     setLoading(member.id);
@@ -115,6 +116,55 @@ export default function AdminPanel({
       setApprovedPhones((prev) => prev.filter((p) => p.id !== id));
     }
     setPhoneLoading(false);
+  }
+
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvResult(null);
+    setPhoneError(null);
+    setPhoneLoading(true);
+
+    const text = await file.text();
+    const rows = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"));
+
+    const records = rows.map((row) => {
+      const [phone, name] = row.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+      return { phone, name: name || null };
+    }).filter((r) => r.phone);
+
+    if (records.length === 0) {
+      setPhoneError("No valid phone numbers found in the file.");
+      setPhoneLoading(false);
+      e.target.value = "";
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("approved_phones")
+      .upsert(records, { onConflict: "phone", ignoreDuplicates: true })
+      .select();
+
+    if (error) {
+      setPhoneError(`Import failed: ${error.message}`);
+    } else {
+      const added = data?.length ?? 0;
+      const skipped = records.length - added;
+      setCsvResult({ added, skipped });
+      if (data && data.length > 0) {
+        const newEntries = data as ApprovedPhone[];
+        setApprovedPhones((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          return [...newEntries.filter((p) => !existingIds.has(p.id)), ...prev];
+        });
+      }
+    }
+
+    setPhoneLoading(false);
+    e.target.value = "";
   }
 
   const filtered = members.filter(
@@ -201,6 +251,47 @@ export default function AdminPanel({
                 {phoneLoading ? "..." : "ADD PHONE"}
               </button>
             </form>
+
+            {/* CSV Import */}
+            <div className="border border-white/10 p-4 mb-6" style={{ background: "#0d0d0d" }}>
+              <p className="text-white/50 text-[9px] tracking-widest uppercase mb-3" style={font}>
+                BULK IMPORT FROM CSV
+              </p>
+              <p className="text-white/30 text-[9px] mb-3 leading-relaxed" style={font}>
+                One row per number. Format: <span className="text-white/50">phone,name</span> — name is optional.
+                <br />Example: <span className="text-white/50">+971501234567,Ahmed Al Rashid</span>
+              </p>
+              <label
+                className="flex items-center justify-center gap-2 border border-dashed border-white/20 px-4 py-3 cursor-pointer hover:border-brand-green/50 transition-colors"
+                style={{ opacity: phoneLoading ? 0.5 : 1 }}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white/40">
+                  <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+                </svg>
+                <span className="text-white/40 text-[10px] tracking-widest uppercase" style={font}>
+                  {phoneLoading ? "IMPORTING..." : "CHOOSE CSV FILE"}
+                </span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvImport}
+                  disabled={phoneLoading}
+                  className="sr-only"
+                />
+              </label>
+              {csvResult && (
+                <div className="mt-3 flex gap-4">
+                  <span className="text-brand-green text-[9px] tracking-wider" style={font}>
+                    ✓ {csvResult.added} ADDED
+                  </span>
+                  {csvResult.skipped > 0 && (
+                    <span className="text-white/30 text-[9px] tracking-wider" style={font}>
+                      {csvResult.skipped} ALREADY EXISTED
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Approved phones list */}
             <div className="space-y-2">
