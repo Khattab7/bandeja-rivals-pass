@@ -6,7 +6,18 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Bandeja Rivals Pass",
-  description: "Your official Bandeja Rivals membership pass",
+  description: "Join the Bandeja Rivals community and unlock exclusive member benefits at partner venues.",
+  openGraph: {
+    title: "Bandeja Rivals Pass",
+    description: "Join the Bandeja Rivals community and unlock exclusive member benefits at partner venues.",
+    siteName: "Bandeja Rivals Pass",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bandeja Rivals Pass",
+    description: "Join the Bandeja Rivals community and unlock exclusive member benefits at partner venues.",
+  },
 };
 
 export default function RootLayout({
