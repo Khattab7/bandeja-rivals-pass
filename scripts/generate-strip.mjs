@@ -23,12 +23,12 @@ async function generate() {
   const svg = Buffer.from(`
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
       <!-- Decorative diagonal lines bottom-left -->
-      <line x1="0" y1="${H}" x2="${W * 0.35}" y2="0" stroke="#8CF702" stroke-width="2" opacity="0.15"/>
-      <line x1="0" y1="${H * 0.78}" x2="${W * 0.28}" y2="0" stroke="white" stroke-width="1" opacity="0.07"/>
+      <line x1="0" y1="${H}" x2="${W * 0.35}" y2="0" stroke="#8CF702" stroke-width="2.5" opacity="0.35"/>
+      <line x1="0" y1="${H * 0.78}" x2="${W * 0.28}" y2="0" stroke="white" stroke-width="1" opacity="0.12"/>
 
       <!-- Decorative diagonal lines top-right -->
-      <line x1="${W}" y1="0" x2="${W * 0.65}" y2="${H}" stroke="#8CF702" stroke-width="2" opacity="0.15"/>
-      <line x1="${W}" y1="${H * 0.22}" x2="${W * 0.72}" y2="${H}" stroke="white" stroke-width="1" opacity="0.07"/>
+      <line x1="${W}" y1="0" x2="${W * 0.65}" y2="${H}" stroke="#8CF702" stroke-width="2.5" opacity="0.35"/>
+      <line x1="${W}" y1="${H * 0.22}" x2="${W * 0.72}" y2="${H}" stroke="white" stroke-width="1" opacity="0.12"/>
 
       <!-- Tagline below logo -->
       <text
@@ -57,7 +57,7 @@ async function generate() {
   `);
 
   const strip2x = await sharp({
-    create: { width: W, height: H, channels: 4, background: { r: 13, g: 95, b: 214, alpha: 255 } },
+    create: { width: W, height: H, channels: 4, background: { r: 13, g: 13, b: 13, alpha: 255 } },
   })
     .composite([
       { input: svg, top: 0, left: 0 },
