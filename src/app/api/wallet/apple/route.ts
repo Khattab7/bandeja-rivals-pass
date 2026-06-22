@@ -51,6 +51,7 @@ export async function GET() {
     { serialNumber: member.id }
   );
 
+  pass.type = "storeCard";
   pass.primaryFields.push({ key: "name", label: "MEMBER", value: member.name.toUpperCase() });
   pass.secondaryFields.push({ key: "memberId", label: "PASS ID", value: member.member_id });
   pass.secondaryFields.push({ key: "validUntil", label: "VALID UNTIL", value: formatDate(member.valid_until) });
