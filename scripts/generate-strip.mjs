@@ -57,7 +57,7 @@ async function generate() {
   `);
 
   const strip2x = await sharp({
-    create: { width: W, height: H, channels: 4, background: { r: 13, g: 13, b: 13, alpha: 255 } },
+    create: { width: W, height: H, channels: 4, background: { r: 13, g: 95, b: 214, alpha: 255 } },
   })
     .composite([
       { input: svg, top: 0, left: 0 },
