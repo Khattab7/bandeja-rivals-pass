@@ -43,6 +43,9 @@ export async function GET() {
       "icon@2x.png": logoBuffer,
       "logo.png": logoBuffer,
       "logo@2x.png": logoBuffer,
+      "strip.png": fs.readFileSync(path.join(modelDir, "strip.png")),
+      "strip@2x.png": fs.readFileSync(path.join(modelDir, "strip@2x.png")),
+      "strip@3x.png": fs.readFileSync(path.join(modelDir, "strip@3x.png")),
     },
     { wwdr, signerCert, signerKey },
     { serialNumber: member.id }
