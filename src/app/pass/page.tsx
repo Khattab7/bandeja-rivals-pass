@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import RivalsPassCard from "@/components/RivalsPassCard";
 import BandejaLogo from "@/components/BandejaLogo";
+import BottomNav from "@/components/BottomNav";
 
 const font = {
   fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif",
@@ -36,7 +37,7 @@ export default async function PassPage() {
 
   return (
     <div
-      className="min-h-screen bg-brand-dark flex flex-col"
+      className="min-h-screen bg-brand-dark flex flex-col pb-20"
       style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
     >
       {/* Header */}
@@ -137,6 +138,7 @@ export default async function PassPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

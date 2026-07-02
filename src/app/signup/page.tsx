@@ -105,7 +105,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/pass");
+    router.push("/onboarding");
     router.refresh();
   }
 

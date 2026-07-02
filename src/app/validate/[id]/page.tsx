@@ -23,7 +23,7 @@ export default async function ValidatePage({
   const { data: member } = await supabase
     .from("members")
     .select("name, member_id, is_active, valid_until, avatar_url")
-    .eq("id", id)
+    .eq("user_id", id)
     .single();
 
   const isExpired = member

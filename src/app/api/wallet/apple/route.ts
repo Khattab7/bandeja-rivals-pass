@@ -31,7 +31,7 @@ export async function GET() {
   const signerKey = Buffer.from(process.env.APPLE_KEY_PEM_B64!, "base64");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://bandeja-rivals-pass.vercel.app";
-  const validationUrl = `${appUrl}/validate/${member.id}`;
+  const validationUrl = `${appUrl}/validate/${user.id}`;
 
   const modelDir = path.join(process.cwd(), "public/pass-model/bandeja.pass");
   const logoBuffer = fs.readFileSync(path.join(modelDir, "logo.png"));
