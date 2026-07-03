@@ -488,5 +488,49 @@ export async function processApprovedRatedMatch(matchId: string): Promise<{ erro
       .eq('locked', false);
   }
 
+  // ── 14. Quest progress ────────────────────────────────────────
+  try {
+    const { processQuestProgressFromMatch } = await import('@/app/actions/quests');
+    const allPlayerIds = snapshotPlayers.map((p) => p.player_id);
+    await processQuestProgressFromMatch(
+      matchId,
+      {
+        team_a_wins: winningSide === 'A',
+        winning_side: winningSide,
+        steps,
+        favored_side: favoredSide as 'A' | 'B' | 'balanced' | null,
+        player_changes: playerChangesJson,
+        bars_json: barsJson,
+      },
+      allPlayerIds,
+      match.team_a_id,
+      match.team_b_id,
+    );
+  } catch (_) {}
+
+  // ── 15. Notify both teams: match processed ────────────────────
+  try {
+    const { sendNotificationToMany, getTeamRecipients } = await import('@/lib/notifications');
+    const [teamARecipients, teamBRecipients] = await Promise.all([
+      getTeamRecipients(match.team_a_id),
+      getTeamRecipients(match.team_b_id),
+    ]);
+    const allRecipients = [...teamARecipients, ...teamBRecipients];
+    await sendNotificationToMany(allRecipients, {
+      type_key: 'match_processing_summary',
+      category: 'rating_bars_streaks',
+      priority: 'high',
+      title: 'Match Processed',
+      body: explanationShort,
+      related_entity_type: 'match',
+      related_entity_id: matchId,
+      actions: [{
+        action_key: 'view_match',
+        action_label: 'View Results',
+        action_url: `/matches/${matchId}`,
+      }],
+    });
+  } catch (_) {}
+
   return {};
 }

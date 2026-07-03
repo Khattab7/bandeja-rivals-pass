@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { sendNotificationToMany, getTeamRecipients } from '@/lib/notifications';
 
 export interface SendChallengeData {
   challenging_team_id: string;
@@ -92,6 +93,35 @@ export async function sendChallenge(data: SendChallengeData): Promise<ChallengeR
     .single();
 
   if (error) return { error: error.message };
+
+  // Notify challenged team: challenge received
+  try {
+    const challengedRecipients = await getTeamRecipients(data.challenged_team_id);
+    const { data: challengingTeamName } = await supabase
+      .from('teams')
+      .select('name, auto_name')
+      .eq('id', data.challenging_team_id)
+      .single();
+    const teamName = challengingTeamName?.name ?? challengingTeamName?.auto_name ?? 'A team';
+    await sendNotificationToMany(challengedRecipients, {
+      type_key: 'challenge_received',
+      category: 'challenge',
+      priority: 'high',
+      title: 'Challenge Received',
+      body: `${teamName} challenged your team to a ${data.match_type === 'rivals_rated' ? 'Rated' : 'Friendly'} match.`,
+      related_entity_type: 'challenge',
+      related_entity_id: challenge.id,
+      is_pinned: true,
+      pinned_until_action: true,
+      actions: [{
+        action_key: 'view_challenge',
+        action_label: 'View Challenge',
+        action_url: '/matches',
+        requires_extra_confirmation: true,
+      }],
+    });
+  } catch (_) {}
+
   return { challenge_id: challenge.id };
 }
 

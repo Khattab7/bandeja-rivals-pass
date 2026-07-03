@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import RivalsPassCard from "@/components/RivalsPassCard";
 import BandejaLogo from "@/components/BandejaLogo";
 import BottomNav from "@/components/BottomNav";
+import Link from "next/link";
 
 const font = {
   fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif",
@@ -25,6 +26,14 @@ export default async function PassPage() {
 
   if (!user) redirect("/login");
 
+  // Unread notification count
+  const { count: unreadCount } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_user_id', user.id)
+    .eq('is_read', false)
+    .eq('is_deleted_by_user', false);
+
   const { data: member } = await supabase
     .from("members")
     .select("*")
@@ -43,15 +52,29 @@ export default async function PassPage() {
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
-        <form action={handleSignOut}>
-          <button
-            type="submit"
-            className="text-white/40 text-xs tracking-widest uppercase hover:text-white/70 transition-colors"
-            style={font}
-          >
-            SIGN OUT
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          {/* Notification bell */}
+          <Link href="/notifications" className="relative flex items-center justify-center w-8 h-8">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {(unreadCount ?? 0) > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-brand-green text-brand-dark text-[8px] font-bold min-w-[14px] h-[14px] flex items-center justify-center rounded-full px-0.5">
+                {(unreadCount ?? 0) > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
+          <form action={handleSignOut}>
+            <button
+              type="submit"
+              className="text-white/40 text-xs tracking-widest uppercase hover:text-white/70 transition-colors"
+              style={font}
+            >
+              SIGN OUT
+            </button>
+          </form>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center px-4 py-8 gap-8">

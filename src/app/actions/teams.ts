@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { sendNotification } from '@/lib/notifications';
 
 function generatePublicId(prefix: string): string {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -110,6 +111,48 @@ export async function invitePartner(data: InvitePartnerData): Promise<InvitePart
     .single();
 
   if (inviteErr) return { error: inviteErr.message };
+
+  // Notify invitee (if a specific player was invited)
+  if (data.invitee_player_id) {
+    try {
+      const { data: inviteeProfile } = await supabase
+        .from('player_profiles')
+        .select('user_id, first_name')
+        .eq('id', data.invitee_player_id)
+        .single();
+      const { data: teamInfo } = await supabase
+        .from('teams')
+        .select('name, auto_name')
+        .eq('id', data.team_id)
+        .single();
+      if (inviteeProfile?.user_id) {
+        const teamName = teamInfo?.name ?? teamInfo?.auto_name ?? 'a team';
+        await sendNotification({
+          type_key: 'team_invite_received',
+          category: 'team',
+          priority: 'high',
+          recipient_user_id: inviteeProfile.user_id,
+          recipient_player_id: data.invitee_player_id,
+          title: 'Team Invitation',
+          body: `You've been invited to join ${teamName}.`,
+          related_entity_type: 'team',
+          related_entity_id: data.team_id,
+          is_pinned: true,
+          pinned_until_action: true,
+          actions: [{
+            action_key: 'accept_invite',
+            action_label: 'Accept Invite',
+            action_url: '/teams',
+          }, {
+            action_key: 'reject_invite',
+            action_label: 'Decline',
+            action_url: '/teams',
+          }],
+        });
+      }
+    } catch (_) {}
+  }
+
   return { invitation_id: invitation.id };
 }
 
@@ -152,6 +195,42 @@ export async function acceptInvitation(invitation_id: string): Promise<AcceptInv
     .from('team_invitations')
     .update({ status: 'accepted', responded_at: new Date().toISOString() })
     .eq('id', invitation_id);
+
+  // Notify captain: partner accepted
+  try {
+    const { data: teamInfo } = await supabase
+      .from('teams')
+      .select('captain_player_id, name, auto_name')
+      .eq('id', invite.team_id)
+      .single();
+    if (teamInfo?.captain_player_id) {
+      const { data: captainProfile } = await supabase
+        .from('player_profiles')
+        .select('user_id, first_name')
+        .eq('id', teamInfo.captain_player_id)
+        .single();
+      const { data: accepterProfile } = await supabase
+        .from('player_profiles')
+        .select('first_name, last_name')
+        .eq('id', profile.id)
+        .single();
+      if (captainProfile?.user_id) {
+        const accepterName = `${accepterProfile?.first_name ?? ''} ${accepterProfile?.last_name ?? ''}`.trim() || 'Your partner';
+        const teamName = teamInfo.name ?? teamInfo.auto_name ?? 'your team';
+        await sendNotification({
+          type_key: 'team_invite_accepted',
+          category: 'team',
+          priority: 'high',
+          recipient_user_id: captainProfile.user_id,
+          recipient_player_id: teamInfo.captain_player_id,
+          title: 'Partner Joined',
+          body: `${accepterName} accepted your invitation and joined ${teamName}.`,
+          related_entity_type: 'team',
+          related_entity_id: invite.team_id,
+        });
+      }
+    }
+  } catch (_) {}
 
   return { team_id: invite.team_id };
 }

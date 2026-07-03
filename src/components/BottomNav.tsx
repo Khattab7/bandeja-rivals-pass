@@ -6,10 +6,11 @@ import { usePathname } from 'next/navigation';
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 
 const NAV = [
-  { href: '/pass',    label: 'Pass',    icon: PassIcon    },
-  { href: '/teams',   label: 'Teams',   icon: TeamsIcon   },
-  { href: '/play',    label: 'Play',    icon: PlayIcon    },
-  { href: '/matches', label: 'Matches', icon: MatchesIcon },
+  { href: '/pass',         label: 'Pass',    icon: PassIcon         },
+  { href: '/teams',        label: 'Teams',   icon: TeamsIcon        },
+  { href: '/play',         label: 'Play',    icon: PlayIcon         },
+  { href: '/matches',      label: 'Matches', icon: MatchesIcon      },
+  { href: '/leaderboards', label: 'Ranks',   icon: LeaderboardIcon  },
 ];
 
 function PassIcon({ active }: { active: boolean }) {
@@ -38,6 +39,17 @@ function PlayIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="5 3 19 12 5 21 5 3" fill={active ? '#8CF702' : 'none'}/>
+    </svg>
+  );
+}
+
+function LeaderboardIcon({ active }: { active: boolean }) {
+  const c = active ? '#8CF702' : 'rgba(255,255,255,0.4)';
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="12" width="4" height="9" rx="1"/>
+      <rect x="9" y="7" width="4" height="14" rx="1"/>
+      <rect x="16" y="3" width="4" height="18" rx="1"/>
     </svg>
   );
 }
