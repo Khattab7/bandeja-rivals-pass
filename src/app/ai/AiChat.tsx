@@ -75,9 +75,11 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
         signal: abort.signal,
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
       }
+      if (!res.body) throw new Error('No response body');
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -94,7 +96,7 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
           if (payload === "[DONE]") break;
           try {
             const parsed = JSON.parse(payload);
-            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.error) { throw new Error(parsed.error); }
             if (parsed.text) {
               accumulated += parsed.text;
               setMessages((prev) => {
@@ -103,14 +105,17 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
                 return updated;
               });
             }
-          } catch { /* skip malformed */ }
+          } catch (lineErr) {
+            if (lineErr instanceof Error && lineErr.message !== 'skip') throw lineErr;
+          }
         }
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
+      const errMsg = err instanceof Error ? err.message : "Unknown error";
       setMessages((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1] = { role: "assistant", content: "Sorry, something went wrong. Please try again." };
+        updated[updated.length - 1] = { role: "assistant", content: `Error: ${errMsg}` };
         return updated;
       });
     } finally {
