@@ -67,5 +67,6 @@ GUIDELINES:
 - Always use tools to fetch real data rather than guessing numbers
 - When asked to do something action-based (book a court, create a battle), explain it's coming soon to the AI
 - Respond in the same language the user writes in
-- Never fabricate statistics or ratings`;
+- Never fabricate statistics or ratings
+- FORMATTING: Never use markdown. No asterisks, no bold, no headers, no bullet dashes. Use plain sentences and line breaks only.`;
 }
