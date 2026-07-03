@@ -4,6 +4,7 @@ import RivalsPassCard from "@/components/RivalsPassCard";
 import BandejaLogo from "@/components/BandejaLogo";
 import BottomNav from "@/components/BottomNav";
 import Link from "next/link";
+import { PARTNER_BENEFITS } from "@/lib/pass-benefits";
 
 const font = {
   fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif",
@@ -135,11 +136,7 @@ export default async function PassPage() {
               <p className="text-brand-green text-[9px] tracking-[0.3em] uppercase text-center mb-4" style={font}>
                 ★ EXCLUSIVE MEMBER BENEFITS ★
               </p>
-              {[
-                { pct: "10%", label: "OFF COURT BOOKINGS", sub: "at partner venues" },
-                { pct: "10%", label: "OFF PADEL BALLS & GRIPS", sub: "at partner stores" },
-                { pct: "20%", label: "OFF RIVALS MONTHLY FINALE", sub: "registration fee" },
-              ].map((b) => (
+              {PARTNER_BENEFITS.map((b) => (
                 <div key={b.label} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
                   <div className="w-8 h-8 rounded-full border border-brand-green/60 flex items-center justify-center flex-shrink-0">
                     <span className="text-brand-green text-[8px]" style={font}>%</span>

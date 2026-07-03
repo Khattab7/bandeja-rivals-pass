@@ -1,3 +1,5 @@
+import { PARTNER_BENEFITS, PLATFORM_BENEFITS } from '@/lib/pass-benefits';
+
 export type PlayerContext = {
   name: string;
   rating: number;
@@ -42,13 +44,11 @@ BARS (Reward Currency):
 - Bars can be redeemed for rewards (courts, gear, etc.)
 
 RIVALS PASS:
-- Premium membership that unlocks Bars rewards, leaderboard eligibility, and priority matchmaking
-- Purchased separately; shown in the Profile tab under "Rivals Pass"
-- Exclusive member benefits:
-  · 10% off court bookings at partner venues
-  · 10% off padel balls and grips at partner stores
-  · 20% off Rivals Monthly Finale registration fee
-- Without Rivals Pass, Bars earned are locked and cannot be redeemed until the player upgrades
+- Premium membership. Purchased separately; shown in the Profile tab under "Rivals Pass".
+- In-app platform benefits:
+${PLATFORM_BENEFITS.map((b) => `  · ${b}`).join('\n')}
+- Partner discounts:
+${PARTNER_BENEFITS.map((b) => `  · ${b.pct} ${b.label} (${b.sub})`).join('\n')}
 
 OPEN MATCHES:
 - Teams can post "Open Matches" — available time slots for any other team to apply and play
