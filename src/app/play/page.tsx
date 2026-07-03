@@ -35,7 +35,7 @@ export default async function PlayPage({
   const { data: activeTeams } = teamIds.length > 0
     ? await supabase
         .from('teams')
-        .select('id, name, auto_name, cached_current_team_rating, status')
+        .select('id, name, auto_name, cached_current_team_rating, status, captain_player_id')
         .in('id', teamIds)
         .eq('status', 'active')
     : { data: [] };
@@ -80,8 +80,9 @@ export default async function PlayPage({
       </header>
 
       <DiscoveryFeed
-        teams={teams as Array<{ id: string; name: string | null; auto_name: string | null; cached_current_team_rating: number | null; status: string }>}
+        teams={teams as Array<{ id: string; name: string | null; auto_name: string | null; cached_current_team_rating: number | null; status: string; captain_player_id: string | null }>}
         selectedTeamId={selectedTeam.id}
+        myPlayerId={profile.id}
       />
 
       <BottomNav />
