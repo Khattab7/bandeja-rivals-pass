@@ -458,9 +458,9 @@ ON CONFLICT (type_key) DO NOTHING;
 INSERT INTO public.app_settings (key, value, description) VALUES
   ('NOTIFICATION_RETENTION_DAYS',                '90',                'Days to retain notification records before automatic cleanup'),
   ('DIGEST_ENABLED',                             'true',              'Whether daily/weekly digest batching is active'),
-  ('DIGEST_FREQUENCY',                           'weekly',            'Digest frequency: daily or weekly'),
-  ('DIGEST_SEND_TIME',                           '09:00',             'Time of day to send digests (Egypt time)'),
-  ('DIGEST_TIMEZONE',                            'Africa/Cairo',      'Timezone for digest scheduling'),
+  ('DIGEST_FREQUENCY',                           '"weekly"',           'Digest frequency: daily or weekly'),
+  ('DIGEST_SEND_TIME',                           '"09:00"',            'Time of day to send digests (Egypt time)'),
+  ('DIGEST_TIMEZONE',                            '"Africa/Cairo"',     'Timezone for digest scheduling'),
   ('CRITICAL_NOTIFICATION_MAX_RETRIES',          '3',                 'Max retry attempts for failed critical notification deliveries'),
   ('CRITICAL_NOTIFICATION_RETRY_DELAY_MINUTES',  '10',                'Delay in minutes between delivery retry attempts'),
   ('EMAIL_NOTIFICATIONS_ENABLED',                'false',             'Master switch for email notifications (set true when email provider is configured)'),
@@ -468,7 +468,7 @@ INSERT INTO public.app_settings (key, value, description) VALUES
   ('BROWSER_PUSH_ENABLED',                       'false',             'Master switch for browser push notifications (architecture-ready, not live in V1)'),
   ('MOBILE_PUSH_ENABLED',                        'false',             'Master switch for mobile push notifications (architecture-ready, not live in V1)'),
   ('AI_PROACTIVE_NOTIFICATIONS_ENABLED',         'false',             'Allow AI to send proactive notifications (requires AI module)'),
-  ('AI_PROACTIVE_NOTIFICATIONS_AVAILABILITY',    'disabled',          'Audience for AI proactive notifications: all / paid_member / disabled'),
+  ('AI_PROACTIVE_NOTIFICATIONS_AVAILABILITY',    '"disabled"',         'Audience for AI proactive notifications: all / paid_member / disabled'),
   ('ADMIN_ANNOUNCEMENTS_ENABLED',                'true',              'Enable admin announcement feature'),
   ('MANDATORY_NOTIFICATION_OVERRIDE_ENABLED',    'true',              'Allow admins to force-mandate additional notification types')
 ON CONFLICT (key) DO NOTHING;

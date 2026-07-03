@@ -334,7 +334,7 @@ CREATE TRIGGER set_quest_participants_updated_at
 INSERT INTO public.app_settings (key, value, description) VALUES
   ('QUEST_SAME_OPPONENT_WEEKLY_COUNT_LIMIT', '2',             'Max matches vs same team per week that count toward quest progress'),
   ('QUEST_SAME_OPPONENT_LIMIT_WINDOW_DAYS',  '7',             'Window in days for same-opponent quest limit'),
-  ('QUEST_DEFAULT_TIMEZONE',                 'Africa/Cairo',  'Default timezone for quest deadlines and display'),
+  ('QUEST_DEFAULT_TIMEZONE',                 '"Africa/Cairo"',  'Default timezone for quest deadlines and display'),
   ('QUEST_AUTO_REPEAT_ENABLED',              'true',          'Auto-generate next instance from repeating quest templates'),
   ('QUEST_SOCIAL_FEED_POSTING_ENABLED',      'true',          'Post to social feed on quest completion'),
   ('QUEST_FOLLOWER_NOTIFICATIONS_ENABLED',   'true',          'Notify followers when someone completes a quest'),
