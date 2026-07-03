@@ -4,6 +4,14 @@ import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
 import ProfileClient from './ProfileClient';
 
+async function handleSignOut() {
+  'use server';
+  const { createClient } = await import('@/lib/supabase/server');
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect('/login');
+}
+
 export default async function ProfilePage({
   params,
 }: {
@@ -109,12 +117,23 @@ export default async function ProfilePage({
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         {isOwnProfile && (
-          <span
-            className="text-brand-green text-xs tracking-widest uppercase"
-            style={{ fontFamily: 'Gobold, Arial Narrow, Arial, sans-serif' }}
-          >
-            My Profile
-          </span>
+          <div className="flex items-center gap-4">
+            <span
+              className="text-brand-green text-xs tracking-widest uppercase"
+              style={{ fontFamily: 'Gobold, Arial Narrow, Arial, sans-serif' }}
+            >
+              My Profile
+            </span>
+            <form action={handleSignOut}>
+              <button
+                type="submit"
+                className="text-white/30 text-xs tracking-widest uppercase hover:text-white/60 transition-colors"
+                style={{ fontFamily: 'Gobold, Arial Narrow, Arial, sans-serif' }}
+              >
+                Sign Out
+              </button>
+            </form>
+          </div>
         )}
       </header>
 
