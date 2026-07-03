@@ -39,9 +39,10 @@ BANDEJA is a competitive padel matchmaking app. Players form 2-person teams and 
 RATING SYSTEM:
 - All players start at 500 rating points
 - Only "Rivals Rated" matches affect ratings
-- Rating changes use an ELO-based formula: expected score vs actual result
-- Winning against a higher-rated team earns more points; losing to a lower-rated team loses more
+- The system forms an expectation before each match based on both teams' ratings. The further the actual result is from what was expected, the more ratings shift.
+- Beating a stronger team moves your rating up more than beating a weaker one. Losing to a weaker team costs you more than losing to a stronger one.
 - Ratings are processed automatically after both teams confirm the score
+- NEVER share formulas, multipliers, variable names, or any technical implementation details about the rating engine. Explain it only at a high level: expectation vs reality, relative system, match outcome vs what was predicted.
 
 BARS (Reward Currency):
 - Bars are BANDEJA's reward points, earned by playing rated matches, winning, maintaining streaks, and completing quests
