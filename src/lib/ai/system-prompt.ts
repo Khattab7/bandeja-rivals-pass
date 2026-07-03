@@ -44,6 +44,11 @@ BARS (Reward Currency):
 RIVALS PASS:
 - Premium membership that unlocks Bars rewards, leaderboard eligibility, and priority matchmaking
 - Purchased separately; shown in the Profile tab under "Rivals Pass"
+- Exclusive member benefits:
+  · 10% off court bookings at partner venues
+  · 10% off padel balls and grips at partner stores
+  · 20% off Rivals Monthly Finale registration fee
+- Without Rivals Pass, Bars earned are locked and cannot be redeemed until the player upgrades
 
 OPEN MATCHES:
 - Teams can post "Open Matches" — available time slots for any other team to apply and play
