@@ -1,4 +1,4 @@
-import { PARTNER_BENEFITS, PLATFORM_BENEFITS } from '@/lib/pass-benefits';
+import { PARTNER_BENEFITS, PLATFORM_BENEFITS, type PartnerBenefit } from '@/lib/pass-benefits';
 
 export type PlayerContext = {
   name: string;
@@ -12,7 +12,13 @@ export type PlayerContext = {
   isMember: boolean;
 };
 
-export function buildSystemPrompt(player?: PlayerContext): string {
+export function buildSystemPrompt(
+  player?: PlayerContext,
+  partnerBenefits?: PartnerBenefit[],
+  platformBenefits?: string[]
+): string {
+  const partners = partnerBenefits ?? PARTNER_BENEFITS;
+  const platform = platformBenefits ?? PLATFORM_BENEFITS;
   const playerSection = player
     ? `
 CURRENT PLAYER:
@@ -46,9 +52,9 @@ BARS (Reward Currency):
 RIVALS PASS:
 - Premium membership. Purchased separately; shown in the Profile tab under "Rivals Pass".
 - In-app platform benefits:
-${PLATFORM_BENEFITS.map((b) => `  · ${b}`).join('\n')}
+${platform.map((b) => `  · ${b}`).join('\n')}
 - Partner discounts:
-${PARTNER_BENEFITS.map((b) => `  · ${b.pct} ${b.label} (${b.sub})`).join('\n')}
+${partners.map((b) => `  · ${b.pct} ${b.label} (${b.sub})`).join('\n')}
 
 OPEN MATCHES:
 - Teams can post "Open Matches" — available time slots for any other team to apply and play

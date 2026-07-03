@@ -4,7 +4,7 @@ import RivalsPassCard from "@/components/RivalsPassCard";
 import BandejaLogo from "@/components/BandejaLogo";
 import BottomNav from "@/components/BottomNav";
 import Link from "next/link";
-import { PARTNER_BENEFITS } from "@/lib/pass-benefits";
+import { PARTNER_BENEFITS, type PartnerBenefit } from "@/lib/pass-benefits";
 
 const font = {
   fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif",
@@ -27,19 +27,19 @@ export default async function PassPage() {
 
   if (!user) redirect("/login");
 
-  // Unread notification count
-  const { count: unreadCount } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('recipient_user_id', user.id)
-    .eq('is_read', false)
-    .eq('is_deleted_by_user', false);
+  const [
+    { count: unreadCount },
+    { data: member },
+    { data: benefitsSetting },
+  ] = await Promise.all([
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_user_id', user.id).eq('is_read', false).eq('is_deleted_by_user', false),
+    supabase.from('members').select('*').eq('user_id', user.id).single(),
+    supabase.from('app_settings').select('value').eq('key', 'RIVALS_PASS_PARTNER_BENEFITS').single(),
+  ]);
 
-  const { data: member } = await supabase
-    .from("members")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+  const partnerBenefits: PartnerBenefit[] = Array.isArray(benefitsSetting?.value)
+    ? benefitsSetting.value as PartnerBenefit[]
+    : PARTNER_BENEFITS;
 
   const validationUrl = member
     ? `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/validate/${member.id}`
@@ -136,7 +136,7 @@ export default async function PassPage() {
               <p className="text-brand-green text-[9px] tracking-[0.3em] uppercase text-center mb-4" style={font}>
                 ★ EXCLUSIVE MEMBER BENEFITS ★
               </p>
-              {PARTNER_BENEFITS.map((b) => (
+              {partnerBenefits.map((b) => (
                 <div key={b.label} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
                   <div className="w-8 h-8 rounded-full border border-brand-green/60 flex items-center justify-center flex-shrink-0">
                     <span className="text-brand-green text-[8px]" style={font}>%</span>

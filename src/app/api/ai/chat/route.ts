@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAiClient, AI_MODEL } from '@/lib/ai/provider';
 import { buildSystemPrompt } from '@/lib/ai/system-prompt';
 import { PHASE1_TOOLS } from '@/lib/ai/tools';
+import { PARTNER_BENEFITS, PLATFORM_BENEFITS, type PartnerBenefit } from '@/lib/pass-benefits';
 import type OpenAI from 'openai';
 
 export const runtime = 'nodejs';
@@ -94,11 +95,17 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  const { data: profile } = await supabase
-    .from('player_profiles')
-    .select('id, display_name, first_name, last_name, current_rating, city')
-    .eq('user_id', user.id)
-    .single();
+  const [
+    { data: profile },
+    { data: member },
+    { data: partnerSetting },
+    { data: platformSetting },
+  ] = await Promise.all([
+    supabase.from('player_profiles').select('id, display_name, first_name, last_name, current_rating, city').eq('user_id', user.id).single(),
+    supabase.from('members').select('is_active, valid_until').eq('user_id', user.id).single(),
+    supabase.from('app_settings').select('value').eq('key', 'RIVALS_PASS_PARTNER_BENEFITS').single(),
+    supabase.from('app_settings').select('value').eq('key', 'RIVALS_PASS_PLATFORM_BENEFITS').single(),
+  ]);
 
   const { data: stats } = profile
     ? await supabase
@@ -108,11 +115,8 @@ export async function POST(req: Request) {
         .single()
     : { data: null };
 
-  const { data: member } = await supabase
-    .from('members')
-    .select('is_active, valid_until')
-    .eq('user_id', user.id)
-    .single();
+  const partnerBenefits: PartnerBenefit[] = Array.isArray(partnerSetting?.value) ? partnerSetting.value as PartnerBenefit[] : PARTNER_BENEFITS;
+  const platformBenefits: string[] = Array.isArray(platformSetting?.value) ? platformSetting.value as string[] : PLATFORM_BENEFITS;
 
   const playerCtx = profile
     ? {
@@ -141,7 +145,7 @@ export async function POST(req: Request) {
   }
 
   const ai = createAiClient();
-  const systemPrompt = buildSystemPrompt(playerCtx);
+  const systemPrompt = buildSystemPrompt(playerCtx, partnerBenefits, platformBenefits);
 
   const apiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
