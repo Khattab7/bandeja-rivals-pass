@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendNotification } from '@/lib/notifications';
 
@@ -29,9 +29,10 @@ export async function createTeam(data: { name?: string }): Promise<CreateTeamRes
     .single();
   if (!profile) return { error: 'Player profile not found.' };
 
+  const service = createServiceClient();
   const public_team_id = generatePublicId('BRT');
 
-  const { data: team, error: teamErr } = await supabase
+  const { data: team, error: teamErr } = await service
     .from('teams')
     .insert({
       public_team_id,
@@ -45,7 +46,7 @@ export async function createTeam(data: { name?: string }): Promise<CreateTeamRes
 
   if (teamErr) return { error: teamErr.message };
 
-  const { error: memberErr } = await supabase
+  const { error: memberErr } = await service
     .from('team_members')
     .insert({ team_id: team.id, player_id: profile.id, role: 'captain' });
 
@@ -79,8 +80,10 @@ export async function invitePartner(data: InvitePartnerData): Promise<InvitePart
     .single();
   if (!profile) return { error: 'Player profile not found.' };
 
+  const service = createServiceClient();
+
   // Verify inviter is the captain of this team
-  const { data: team } = await supabase
+  const { data: team } = await service
     .from('teams')
     .select('id, captain_player_id, status')
     .eq('id', data.team_id)
@@ -91,13 +94,13 @@ export async function invitePartner(data: InvitePartnerData): Promise<InvitePart
   if (team.status === 'active') return { error: 'Team already has 2 members.' };
 
   // Cancel any existing pending invitations from this team
-  await supabase
+  await service
     .from('team_invitations')
     .update({ status: 'cancelled' })
     .eq('team_id', data.team_id)
     .eq('status', 'pending');
 
-  const { data: invitation, error: inviteErr } = await supabase
+  const { data: invitation, error: inviteErr } = await service
     .from('team_invitations')
     .insert({
       team_id: data.team_id,
