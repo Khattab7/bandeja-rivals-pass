@@ -44,7 +44,7 @@ export default async function PlayPage({
 
   if (teams.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-dark flex flex-col pb-20">
+      <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
         <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <BandejaLogo width={120} height={30} />
           <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Play</span>
@@ -73,7 +73,7 @@ export default async function PlayPage({
   const selectedTeam = teams.find((t) => t.id === teamParam) ?? teams[0];
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col pb-20">
+    <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Find a Match</span>

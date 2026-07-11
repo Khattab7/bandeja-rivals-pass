@@ -113,7 +113,7 @@ export default async function ProfilePage({
       : profile.username ?? 'Player');
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col pb-20">
+    <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         {isOwnProfile && (

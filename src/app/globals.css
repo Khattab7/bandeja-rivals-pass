@@ -56,6 +56,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Safe area nav bottom — use on every page wrapper that sits above the bottom nav */
+.pb-safe-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;

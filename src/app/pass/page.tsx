@@ -47,7 +47,7 @@ export default async function PassPage() {
 
   return (
     <div
-      className="min-h-screen bg-brand-dark flex flex-col pb-20"
+      className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav"
       style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
     >
       {/* Header */}

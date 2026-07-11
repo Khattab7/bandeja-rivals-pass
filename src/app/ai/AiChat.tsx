@@ -140,7 +140,7 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col flex-1 pb-16" style={{ minHeight: 0 }}>
+    <div className="flex flex-col flex-1 pb-safe-nav" style={{ minHeight: 0 }}>
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2.5">
