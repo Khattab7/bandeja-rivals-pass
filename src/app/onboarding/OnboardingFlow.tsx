@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -220,7 +220,7 @@ export default function OnboardingFlow() {
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      <header className="flex items-center justify-between px-5 py-4 pt-safe-header border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         {step < 4 && (
           <span className="text-white/30 text-xs tracking-widest uppercase" style={G}>

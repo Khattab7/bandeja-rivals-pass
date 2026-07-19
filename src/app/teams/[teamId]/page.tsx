@@ -96,7 +96,7 @@ export default async function TeamDetailPage({
 
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
-      <header className="flex items-center gap-4 px-5 py-4 border-b border-white/10">
+      <header className="flex items-center gap-4 px-5 py-4 pt-safe-header border-b border-white/10">
         <a href="/teams" className="text-white/40 text-sm hover:text-white/70 transition-colors">←</a>
         <BandejaLogo width={100} height={25} />
       </header>

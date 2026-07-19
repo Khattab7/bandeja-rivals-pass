@@ -127,7 +127,7 @@ export default async function MatchDetailPage({
 
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
-      <header className="flex items-center gap-3 px-5 py-4 border-b border-white/10">
+      <header className="flex items-center gap-3 px-5 py-4 pt-safe-header border-b border-white/10">
         <Link href="/matches" className="text-white/40 hover:text-white/70 text-sm">←</Link>
         <BandejaLogo width={100} height={26} />
       </header>

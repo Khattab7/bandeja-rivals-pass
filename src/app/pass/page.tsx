@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import RivalsPassCard from "@/components/RivalsPassCard";
 import BandejaLogo from "@/components/BandejaLogo";
@@ -51,7 +51,7 @@ export default async function PassPage() {
       style={{ fontFamily: "Gobold, Barlow Condensed, Arial, sans-serif" }}
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      <header className="flex items-center justify-between px-5 py-4 pt-safe-header border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         <div className="flex items-center gap-4">
           {/* Notification bell */}

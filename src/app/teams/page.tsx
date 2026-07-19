@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
@@ -98,7 +98,7 @@ export default async function TeamsPage() {
 
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
-      <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      <header className="flex items-center justify-between px-5 py-4 pt-safe-header border-b border-white/10">
         <BandejaLogo width={120} height={30} />
         <div className="flex items-center gap-3">
           <NotificationBell />

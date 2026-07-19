@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import BandejaLogo from "@/components/BandejaLogo";
@@ -144,7 +144,7 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
   return (
     <div className="flex flex-col flex-1 pb-safe-nav" style={{ minHeight: 0 }}>
       {/* Header */}
-      <header className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+      <header className="flex items-center justify-between px-5 py-4 pt-safe-header border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2.5">
           <SparkleIcon size={18} />
           <div>

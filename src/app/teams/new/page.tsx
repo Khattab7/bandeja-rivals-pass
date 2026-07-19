@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import BandejaLogo from '@/components/BandejaLogo';
 import CreateTeamFlow from './CreateTeamFlow';
@@ -18,7 +18,7 @@ export default async function NewTeamPage() {
 
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col">
-      <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      <header className="flex items-center justify-between px-5 py-4 pt-safe-header border-b border-white/10">
         <BandejaLogo width={120} height={30} />
       </header>
       <CreateTeamFlow

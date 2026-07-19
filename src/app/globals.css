@@ -104,11 +104,10 @@ body {
   to   { opacity: 0.6; }
 }
 
-/* Push every page header below the iOS status bar / Dynamic Island */
-@layer base {
-  header {
-    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
-  }
+/* Push every page header below the iOS status bar / Dynamic Island.
+   Bare class (not in @layer) so it wins over Tailwind utility layers. */
+.pt-safe-header {
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
 }
 
 /* Scrollbar styling */
