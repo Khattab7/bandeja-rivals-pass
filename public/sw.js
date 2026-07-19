@@ -1,4 +1,8 @@
-const CACHE_NAME = 'bandeja-v2';
+const CACHE_NAME = 'bandeja-v3';
+
+// Only cache content-hashed static assets — never cache page HTML.
+// Page HTML always comes fresh from the server so deploys take effect immediately.
+const STATIC = /^\/_next\/static\/|^\/icons\/|^\/fonts\//;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -13,20 +17,31 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first: always try live, fall back to cache
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return res;
+  const { pathname } = new URL(event.request.url);
+
+  if (STATIC.test(pathname)) {
+    // Static assets: cache-first (content-hashed, safe forever)
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          }
+          return res;
+        });
       })
-      .catch(() => caches.match(event.request))
-  );
+    );
+    return;
+  }
+
+  // Pages and API routes: network-only — always fresh, never stale
+  event.respondWith(fetch(event.request));
 });
 
 // Push notification handler
