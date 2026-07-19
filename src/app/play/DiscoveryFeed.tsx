@@ -378,14 +378,28 @@ export default function DiscoveryFeed({
               </div>
             </div>
             <div className="space-y-2">
-              <p className="text-white/40 text-[10px] tracking-widest uppercase" style={G}>Date & Time <span className="text-white/20">(optional)</span></p>
+              <p className="text-white/40 text-[10px] tracking-widest uppercase" style={G}>Proposed Date & Time <span className="text-white/20">(optional)</span></p>
               <input type="datetime-local" className="w-full bg-transparent border border-white/20 text-white px-3 py-2.5 text-sm outline-none focus:border-brand-green transition-colors" style={I}
                 value={challengeForm.proposed_datetime} onChange={(e) => setChallengeForm((f) => f ? { ...f, proposed_datetime: e.target.value } : f)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <p className="text-white/40 text-[10px] tracking-widest uppercase" style={G}>City <span className="text-white/20">(optional)</span></p>
+                <input className="w-full bg-transparent border border-white/20 text-white placeholder-white/20 px-3 py-2.5 text-sm outline-none focus:border-brand-green transition-colors" style={I}
+                  placeholder="Cairo" value={challengeForm.city}
+                  onChange={(e) => setChallengeForm((f) => f ? { ...f, city: e.target.value } : f)} maxLength={80} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-white/40 text-[10px] tracking-widest uppercase" style={G}>Area <span className="text-white/20">(optional)</span></p>
+                <input className="w-full bg-transparent border border-white/20 text-white placeholder-white/20 px-3 py-2.5 text-sm outline-none focus:border-brand-green transition-colors" style={I}
+                  placeholder="Maadi" value={challengeForm.area}
+                  onChange={(e) => setChallengeForm((f) => f ? { ...f, area: e.target.value } : f)} maxLength={80} />
+              </div>
             </div>
             <div className="space-y-2">
               <p className="text-white/40 text-[10px] tracking-widest uppercase" style={G}>Message <span className="text-white/20">(optional)</span></p>
               <input className="w-full bg-transparent border border-white/20 text-white placeholder-white/20 px-3 py-2.5 text-sm outline-none focus:border-brand-green transition-colors" style={I}
-                placeholder="Let's play this weekend!" value={challengeForm.message}
+                placeholder="Let's play Saturday at 4pm!" value={challengeForm.message}
                 onChange={(e) => setChallengeForm((f) => f ? { ...f, message: e.target.value } : f)} maxLength={200} />
             </div>
             {challengeError && <p className="text-red-400 text-sm" style={I}>{challengeError}</p>}

@@ -41,10 +41,23 @@ export default async function MatchDetailPage({
   // Load match
   const { data: match } = await supabase
     .from('matches')
-    .select('id, match_type, status, team_a_id, team_b_id, scheduled_date, first_score_submitted_at, rating_snapshot_json, created_at')
+    .select('id, match_type, status, team_a_id, team_b_id, scheduled_date, city, area, source_type, source_id, first_score_submitted_at, rating_snapshot_json, created_at')
     .eq('id', matchId)
     .single();
   if (!match) notFound();
+
+  // Fetch challenge message if this match came from a team challenge
+  let challengeMessage: string | null = null;
+  let challengeProposedDatetime: string | null = null;
+  if (match.source_type === 'team_challenge' && match.source_id) {
+    const { data: challenge } = await supabase
+      .from('team_challenges')
+      .select('message, proposed_datetime')
+      .eq('id', match.source_id)
+      .maybeSingle();
+    challengeMessage = challenge?.message ?? null;
+    challengeProposedDatetime = challenge?.proposed_datetime ?? null;
+  }
 
   // All players in match
   const { data: matchPlayers } = await supabase
@@ -157,6 +170,52 @@ export default async function MatchDetailPage({
           )}
         </div>
 
+        {/* ── Scheduling info (pre-play) ────────────────────────── */}
+        {(match.status === 'scheduled' || match.status === 'scheduled_tbd') && (
+          <div className="border border-white/10 p-4 space-y-3">
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Match Details</p>
+
+            {match.scheduled_date || match.city || match.area ? (
+              <div className="space-y-2">
+                {match.scheduled_date && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-white/25 text-[10px] w-12 shrink-0 pt-0.5" style={G}>DATE</span>
+                    <p className="text-white text-sm" style={I}>
+                      {new Date(match.scheduled_date).toLocaleDateString('en-GB', {
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                      {challengeProposedDatetime && (() => {
+                        const t = new Date(challengeProposedDatetime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                        return <span className="text-white/50"> · {t}</span>;
+                      })()}
+                    </p>
+                  </div>
+                )}
+                {(match.city || match.area) && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-white/25 text-[10px] w-12 shrink-0 pt-0.5" style={G}>WHERE</span>
+                    <p className="text-white text-sm" style={I}>
+                      {[match.area, match.city].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-white/30 text-sm" style={I}>Time and place not set — coordinate with your opponent.</p>
+            )}
+
+            {challengeMessage && (
+              <p className="text-white/40 text-xs italic border-l-2 border-white/10 pl-3" style={I}>
+                "{challengeMessage}"
+              </p>
+            )}
+
+            <p className="text-white/25 text-[10px] leading-relaxed border-t border-white/10 pt-3" style={I}>
+              Once you have played, use the button below to submit your score.
+            </p>
+          </div>
+        )}
+
         {/* ── Processing summary (if done) ──────────────────────── */}
         {summary && (
           <ProcessingSummary
@@ -231,7 +290,7 @@ export default async function MatchDetailPage({
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
     scheduled:                    { label: 'Scheduled',       color: 'text-blue-400 border-blue-400/30' },
-    scheduled_tbd:                { label: 'Scheduled',       color: 'text-blue-400 border-blue-400/30' },
+    scheduled_tbd:                { label: 'Awaiting Schedule', color: 'text-white/40 border-white/20' },
     awaiting_confirmation:        { label: 'Awaiting Conf.',  color: 'text-yellow-400 border-yellow-400/30' },
     alternative_score_submitted:  { label: 'Score Disputed',  color: 'text-orange-400 border-orange-400/30' },
     confirmed:                    { label: 'Confirmed',       color: 'text-brand-green border-brand-green/30' },

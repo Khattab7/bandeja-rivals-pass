@@ -142,7 +142,7 @@ export async function respondToChallenge(
 
   const { data: challenge } = await supabase
     .from('team_challenges')
-    .select('id, challenged_team_id, challenging_team_id, match_type, status')
+    .select('id, challenged_team_id, challenging_team_id, match_type, status, proposed_datetime, city, area, message')
     .eq('id', challenge_id)
     .single();
   if (!challenge) return { error: 'Challenge not found.' };
@@ -166,16 +166,25 @@ export async function respondToChallenge(
   }
 
   // Accept → create match
+  // Copy scheduling info proposed by the challenger
+  const hasSchedule = !!challenge.proposed_datetime;
+  const scheduledDate = challenge.proposed_datetime
+    ? new Date(challenge.proposed_datetime).toISOString().split('T')[0]
+    : null;
+
   const { data: match, error: matchErr } = await supabase
     .from('matches')
     .insert({
       match_type: challenge.match_type,
-      status: 'scheduled_tbd',
+      status: hasSchedule ? 'scheduled' : 'scheduled_tbd',
       source_type: 'team_challenge',
       source_id: challenge_id,
       team_a_id: challenge.challenging_team_id,
       team_b_id: challenge.challenged_team_id,
       created_by: profile.id,
+      city: challenge.city ?? null,
+      area: challenge.area ?? null,
+      scheduled_date: scheduledDate,
     })
     .select('id')
     .single();

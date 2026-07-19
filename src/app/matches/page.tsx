@@ -35,7 +35,7 @@ export default async function MatchesPage() {
   const { data: matches } = matchIds.length > 0
     ? await supabase
         .from('matches')
-        .select('id, match_type, status, team_a_id, team_b_id, scheduled_date, first_score_submitted_at, created_at')
+        .select('id, match_type, status, team_a_id, team_b_id, scheduled_date, city, area, first_score_submitted_at, created_at')
         .in('id', matchIds)
         .not('status', 'in', '("voided","cancelled")')
         .order('created_at', { ascending: false })
@@ -218,12 +218,29 @@ export default async function MatchesPage() {
                         <p className="text-white text-sm" style={I}>
                           vs. {teamNameById[opponentTeamId] ?? 'Opponent'}
                         </p>
-                        <p className="text-white/30 text-xs mt-0.5" style={I}>
-                          {m.status === 'awaiting_confirmation' && iSubmitted && 'Waiting for confirmation'}
-                          {m.status === 'awaiting_confirmation' && !iSubmitted && 'Score submitted by them'}
-                          {m.status === 'scheduled_tbd' && 'Scheduled — submit score when done'}
-                          {m.status === 'alternative_score_submitted' && 'Scores disputed — check details'}
-                        </p>
+                        {(m.status === 'scheduled' || m.status === 'scheduled_tbd') ? (
+                          <div className="mt-0.5 space-y-0.5">
+                            {m.scheduled_date && (
+                              <p className="text-brand-green/70 text-xs" style={I}>
+                                {new Date(m.scheduled_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
+                              </p>
+                            )}
+                            {(m.city || m.area) && (
+                              <p className="text-white/30 text-xs" style={I}>
+                                {[m.area, m.city].filter(Boolean).join(', ')}
+                              </p>
+                            )}
+                            {!m.scheduled_date && !m.city && (
+                              <p className="text-white/30 text-xs" style={I}>Time & place TBD</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-white/30 text-xs mt-0.5" style={I}>
+                            {m.status === 'awaiting_confirmation' && iSubmitted && 'Waiting for confirmation'}
+                            {m.status === 'awaiting_confirmation' && !iSubmitted && 'Score submitted by them'}
+                            {m.status === 'alternative_score_submitted' && 'Scores disputed — check details'}
+                          </p>
+                        )}
                       </div>
                       <span className="text-white/40 text-sm">→</span>
                     </div>
