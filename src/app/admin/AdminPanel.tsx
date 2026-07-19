@@ -14,6 +14,10 @@ import {
   adminGetQuestTemplates, adminCreateQuestTemplate, adminApproveQuestTemplate,
   adminGetQuestInstances, adminCreateQuestInstance, adminEndQuestInstance,
   adminPreviewGlobalAdjustment, adminApplyGlobalAdjustment,
+  adminPreviewAnnouncement, adminSendAnnouncement, adminGetAnnouncements,
+  adminGetAnnouncementStats,
+  adminSearchPlayersForAnnouncement,
+  type AnnouncementAudience,
 } from "@/app/actions/admin";
 
 const G = { fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif" };
@@ -23,7 +27,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 }
 
-type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests";
+type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce";
 
 export default function AdminPanel({
   members: initial,
@@ -55,6 +59,7 @@ export default function AdminPanel({
     { key: "settings", label: "Settings" },
     { key: "bars", label: "Bars" },
     { key: "quests", label: "Quests" },
+    { key: "announce", label: "Announce" },
   ];
 
   async function toggleActive(member: Member) {
@@ -163,6 +168,7 @@ export default function AdminPanel({
         {activeTab === "settings" && <SettingsTab />}
         {activeTab === "bars" && <BarsTab />}
         {activeTab === "quests" && <QuestsTab />}
+        {activeTab === "announce" && <AnnounceTab />}
       </main>
     </div>
   );
@@ -997,6 +1003,302 @@ function QuestsTab() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Announce Tab ──────────────────────────────────────────────
+
+type AnnouncementRow = {
+  id: string;
+  title: string;
+  body: string;
+  target_filters_json: Record<string, unknown> | null;
+  status: string;
+  sent_at: string | null;
+  audience_count: number | null;
+  created_at: string;
+};
+
+type AnnounceStats = { total: number; inAppRead: number; pushDelivered: number; pushTapped: number };
+
+type PlayerResult = { player_id: string; user_id: string; display_name: string };
+
+function AnnounceTab() {
+  const [isPending, startTransition] = useTransition();
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [audience, setAudience] = useState<AnnouncementAudience>('all');
+  const [city, setCity] = useState('');
+  // Specific users
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PlayerResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedPlayers, setSelectedPlayers] = useState<PlayerResult[]>([]);
+
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [history, setHistory] = useState<AnnouncementRow[]>([]);
+  const [expandedStats, setExpandedStats] = useState<string | null>(null);
+  const [statsCache, setStatsCache] = useState<Record<string, AnnounceStats>>({});
+  const [loadingStats, setLoadingStats] = useState<string | null>(null);
+
+  useEffect(() => {
+    startTransition(async () => {
+      const res = await adminGetAnnouncements();
+      if (!res.error) setHistory(res.announcements as AnnouncementRow[]);
+    });
+  }, []);
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    const res = await adminSearchPlayersForAnnouncement(searchQuery);
+    setSearchResults(res.players as PlayerResult[]);
+    setSearching(false);
+  }
+
+  function addPlayer(p: PlayerResult) {
+    if (selectedPlayers.some((s) => s.player_id === p.player_id)) return;
+    setSelectedPlayers((prev) => [...prev, p]);
+    setPreviewCount(null);
+  }
+
+  function removePlayer(playerId: string) {
+    setSelectedPlayers((prev) => prev.filter((p) => p.player_id !== playerId));
+    setPreviewCount(null);
+  }
+
+  async function handlePreview() {
+    setPreviewing(true); setPreviewCount(null); setError(null);
+    const res = await adminPreviewAnnouncement(
+      audience,
+      audience === 'city' ? city : undefined,
+      audience === 'specific' ? selectedPlayers.map((p) => p.player_id) : undefined,
+    );
+    setPreviewCount(res.count);
+    setPreviewing(false);
+  }
+
+  function handleSend() {
+    if (!title.trim() || !body.trim()) { setError('Title and body are required.'); return; }
+    if (audience === 'city' && !city.trim()) { setError('Enter a city name.'); return; }
+    if (audience === 'specific' && selectedPlayers.length === 0) { setError('Select at least one player.'); return; }
+    setError(null);
+    startTransition(async () => {
+      const res = await adminSendAnnouncement({
+        title, body, audience,
+        city: audience === 'city' ? city : undefined,
+        specificPlayerIds: audience === 'specific' ? selectedPlayers.map((p) => p.player_id) : undefined,
+      });
+      if (!res.success) { setError(res.error ?? 'Failed'); return; }
+      setSuccess(`Sent to ${res.sent} of ${res.total} users.`);
+      setTitle(''); setBody(''); setPreviewCount(null);
+      if (audience === 'specific') { setSelectedPlayers([]); setSearchQuery(''); setSearchResults([]); }
+      const hist = await adminGetAnnouncements();
+      if (!hist.error) setHistory(hist.announcements as AnnouncementRow[]);
+      setTimeout(() => setSuccess(null), 5000);
+    });
+  }
+
+  async function handleToggleStats(id: string) {
+    if (expandedStats === id) { setExpandedStats(null); return; }
+    setExpandedStats(id);
+    if (statsCache[id]) return;
+    setLoadingStats(id);
+    const res = await adminGetAnnouncementStats(id);
+    setStatsCache((prev) => ({ ...prev, [id]: res }));
+    setLoadingStats(null);
+  }
+
+  const AUDIENCE_OPTS: { key: AnnouncementAudience; label: string }[] = [
+    { key: 'all', label: 'All Players' },
+    { key: 'paid', label: 'Paid Members' },
+    { key: 'free', label: 'Free Players' },
+    { key: 'city', label: 'By City' },
+    { key: 'specific', label: 'Specific Users' },
+  ];
+
+  return (
+    <div className="space-y-8 max-w-2xl">
+      <div>
+        <h2 className="text-white text-sm tracking-widest uppercase mb-4" style={G}>Send Announcement</h2>
+
+        {error && <div className="border border-red-500/30 bg-red-500/10 text-red-400 text-xs px-4 py-3 mb-4" style={I}>{error}</div>}
+        {success && <div className="border border-brand-green/30 bg-brand-green/10 text-brand-green text-xs px-4 py-3 mb-4" style={I}>{success}</div>}
+
+        <div className="space-y-4">
+          {/* Title */}
+          <div>
+            <label className="text-white/40 text-[9px] tracking-widest uppercase block mb-1.5" style={G}>Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Announcement title…"
+              className="w-full bg-white/5 border border-white/15 text-white px-4 py-2.5 text-sm outline-none focus:border-brand-green/50 transition-colors" style={I} />
+          </div>
+
+          {/* Body */}
+          <div>
+            <label className="text-white/40 text-[9px] tracking-widest uppercase block mb-1.5" style={G}>Message</label>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your announcement…" rows={4}
+              className="w-full bg-white/5 border border-white/15 text-white px-4 py-2.5 text-sm outline-none focus:border-brand-green/50 transition-colors resize-none" style={I} />
+          </div>
+
+          {/* Audience */}
+          <div>
+            <label className="text-white/40 text-[9px] tracking-widest uppercase block mb-1.5" style={G}>Audience</label>
+            <div className="flex flex-wrap gap-2">
+              {AUDIENCE_OPTS.map(({ key, label }) => (
+                <button key={key}
+                  onClick={() => { setAudience(key); setPreviewCount(null); setSearchResults([]); }}
+                  className="px-4 py-1.5 text-[9px] tracking-widest uppercase border transition-colors"
+                  style={{ ...G, borderColor: audience === key ? '#8CF702' : 'rgba(255,255,255,0.15)', color: audience === key ? '#8CF702' : 'rgba(255,255,255,0.4)', background: audience === key ? 'rgba(140,247,2,0.07)' : 'transparent' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {audience === 'city' && (
+              <input value={city} onChange={(e) => { setCity(e.target.value); setPreviewCount(null); }}
+                placeholder="City name (e.g. Cairo)"
+                className="mt-2 w-full bg-white/5 border border-white/15 text-white px-4 py-2.5 text-sm outline-none focus:border-brand-green/50 transition-colors" style={I} />
+            )}
+
+            {audience === 'specific' && (
+              <div className="mt-3 space-y-3">
+                {/* Selected players chips */}
+                {selectedPlayers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlayers.map((p) => (
+                      <span key={p.player_id} className="flex items-center gap-1.5 px-2.5 py-1 border border-brand-green/40 bg-brand-green/5 text-brand-green text-[10px] tracking-wider" style={G}>
+                        {p.display_name.toUpperCase()}
+                        <button onClick={() => removePlayer(p.player_id)} className="text-brand-green/50 hover:text-brand-green ml-0.5">✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search box */}
+                <div className="flex gap-2">
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="Search by name or phone number…"
+                    className="flex-1 bg-white/5 border border-white/15 text-white placeholder-white/25 px-4 py-2.5 text-sm outline-none focus:border-brand-green/50 transition-colors"
+                    style={I}
+                  />
+                  <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+                    className="border border-white/20 text-white/50 px-4 py-2 text-[9px] tracking-widest uppercase hover:border-white/40 disabled:opacity-40 transition-colors shrink-0" style={G}>
+                    {searching ? '…' : 'Search'}
+                  </button>
+                </div>
+
+                {/* Search results */}
+                {searchResults.length > 0 && (
+                  <div className="border border-white/10 divide-y divide-white/5" style={{ background: '#0d0d0d' }}>
+                    {searchResults.map((p) => {
+                      const already = selectedPlayers.some((s) => s.player_id === p.player_id);
+                      return (
+                        <div key={p.player_id} className="flex items-center justify-between px-4 py-2.5">
+                          <span className="text-white/70 text-sm" style={G}>{p.display_name.toUpperCase()}</span>
+                          <button onClick={() => addPlayer(p)} disabled={already}
+                            className="text-[9px] tracking-widest uppercase border px-3 py-1 transition-colors disabled:opacity-30"
+                            style={{ ...G, borderColor: already ? '#444' : '#8CF702', color: already ? '#555' : '#8CF702' }}>
+                            {already ? 'Added' : '+ Add'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {searchResults.length === 0 && searchQuery && !searching && (
+                  <p className="text-white/25 text-xs" style={I}>No players found.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Preview + Send */}
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={handlePreview} disabled={previewing || isPending || (audience === 'specific' && selectedPlayers.length === 0)}
+              className="border border-white/20 text-white/50 px-4 py-2 text-[9px] tracking-widest uppercase hover:border-white/40 transition-colors disabled:opacity-40" style={G}>
+              {previewing ? 'Counting…' : 'Preview Audience'}
+            </button>
+            {previewCount !== null && (
+              <span className="text-brand-green text-xs" style={I}>{previewCount} {previewCount === 1 ? 'player' : 'players'} will receive this</span>
+            )}
+            <button onClick={handleSend} disabled={isPending || !title.trim() || !body.trim() || (audience === 'specific' && selectedPlayers.length === 0)}
+              className="ml-auto bg-brand-green text-brand-dark px-5 py-2 text-[9px] tracking-widest uppercase font-bold hover:bg-brand-green/90 transition-colors disabled:opacity-40" style={G}>
+              {isPending ? 'Sending…' : 'Send Now'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div>
+          <h2 className="text-white text-sm tracking-widest uppercase mb-3" style={G}>Past Announcements</h2>
+          <div className="space-y-2">
+            {history.map((a) => {
+              const filters = a.target_filters_json as { audience?: string; city?: string; player_ids?: string[] } | null;
+              const audienceLabel =
+                filters?.audience === 'paid' ? 'Paid Members' :
+                filters?.audience === 'free' ? 'Free Players' :
+                filters?.audience === 'city' ? `City: ${filters.city}` :
+                filters?.audience === 'specific' ? `${filters.player_ids?.length ?? 0} specific users` :
+                'All Players';
+              const isOpen = expandedStats === a.id;
+              const stats = statsCache[a.id];
+              return (
+                <div key={a.id} className="border border-white/10" style={{ background: '#0d0d0d' }}>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-xs tracking-wider uppercase truncate" style={G}>{a.title}</p>
+                        <p className="text-white/50 text-xs mt-0.5 line-clamp-2" style={I}>{a.body}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-brand-green text-[9px] tracking-widest uppercase" style={G}>{audienceLabel}</p>
+                        <p className="text-white/30 text-[10px] mt-0.5" style={I}>{a.audience_count ?? '—'} sent</p>
+                        <p className="text-white/20 text-[10px] mt-0.5" style={I}>{a.sent_at ? formatDate(a.sent_at) : '—'}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleToggleStats(a.id)} disabled={loadingStats === a.id}
+                      className="mt-3 text-[9px] tracking-widest uppercase transition-colors disabled:opacity-40"
+                      style={{ ...G, color: isOpen ? 'rgba(255,255,255,0.3)' : '#8CF702' }}>
+                      {loadingStats === a.id ? 'Loading…' : isOpen ? '▲ Hide Stats' : '▼ View Stats'}
+                    </button>
+                  </div>
+
+                  {isOpen && (
+                    <div className="border-t border-white/10 px-4 py-3">
+                      {!stats ? (
+                        <p className="text-white/30 text-[10px]" style={I}>Loading…</p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'Sent', value: stats.total, color: '#fff' },
+                            { label: 'In-App Read', value: stats.inAppRead, color: '#8CF702' },
+                            { label: 'Push Delivered', value: stats.pushDelivered, color: '#60a5fa' },
+                            { label: 'Push Tapped', value: stats.pushTapped, color: '#f97316' },
+                          ].map((s) => (
+                            <div key={s.label} className="text-center border border-white/5 py-2 px-1" style={{ background: '#111' }}>
+                              <p style={{ color: s.color, ...G }} className="text-lg font-bold">{s.value}</p>
+                              <p className="text-white/30 text-[8px] tracking-widest uppercase mt-0.5" style={G}>{s.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
 import NotificationInbox from './NotificationInbox';
+import EnablePushBanner from '@/components/EnablePushBanner';
 
 export default async function NotificationsPage() {
   const supabase = await createClient();
@@ -67,6 +68,8 @@ export default async function NotificationsPage() {
           </span>
         </div>
       </header>
+
+      <EnablePushBanner />
 
       <NotificationInbox
         pinned={pinned}

@@ -1,12 +1,25 @@
 /**
  * Notification dispatch service.
  * All modules call sendNotification() to create notification records.
- * V1 active channels: in_app only.
+ * Active channels: in_app + browser push (Web Push API).
  * Email: architecture-ready (EMAIL_NOTIFICATIONS_ENABLED=false in app_settings).
- * WhatsApp, browser push, mobile push: architecture-ready, not live.
+ * WhatsApp, mobile push: architecture-ready, not live.
  */
 
+import webpush from 'web-push';
 import { createServiceClient } from '@/lib/supabase/server';
+
+let vapidInitialised = false;
+function initVapid() {
+  if (vapidInitialised) return;
+  const contact = process.env.VAPID_CONTACT?.trim();
+  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const priv = process.env.VAPID_PRIVATE_KEY?.trim();
+  if (contact && pub && priv) {
+    webpush.setVapidDetails(contact, pub, priv);
+    vapidInitialised = true;
+  }
+}
 
 export type NotificationPayload = {
   type_key: string;
@@ -112,6 +125,58 @@ export async function sendNotification(payload: NotificationPayload): Promise<st
         requires_extra_confirmation: a.requires_extra_confirmation ?? false,
         status: 'available' as const,
       }))
+    );
+  }
+
+  // Browser push channel — send to all subscribed devices for this user
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pushSubs } = await (service as any)
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .eq('user_id', payload.recipient_user_id);
+
+  if (pushSubs?.length) {
+    const pushPayload = JSON.stringify({
+      notification_id: notif.id,
+      title: payload.title ?? 'BANDEJA',
+      body: payload.body,
+      tag: payload.type_key,
+      url: (payload.related_entity_type && payload.related_entity_type !== 'admin_announcement')
+        ? `/${payload.related_entity_type}s/${payload.related_entity_id ?? ''}`
+        : '/notifications',
+    });
+
+    initVapid();
+    await Promise.allSettled(
+      pushSubs.map(async (sub: { endpoint: string; p256dh: string; auth: string }) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            pushPayload,
+          );
+          await service.from('notification_deliveries').insert({
+            notification_id: notif.id,
+            channel: 'browser_push',
+            status: 'delivered',
+            provider: 'web_push',
+            sent_at: new Date().toISOString(),
+            delivered_at: new Date().toISOString(),
+          });
+        } catch (err: unknown) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 410 || status === 404) {
+            // Subscription expired — remove it
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (service as any).from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          }
+          await service.from('notification_deliveries').insert({
+            notification_id: notif.id,
+            channel: 'browser_push',
+            status: 'failed',
+            provider: 'web_push',
+          });
+        }
+      })
     );
   }
 

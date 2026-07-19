@@ -39,15 +39,29 @@ self.addEventListener('push', (event) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: data.tag ?? 'bandeja-notification',
-      data: { url: data.url ?? '/' },
+      data: {
+        url: data.url ?? '/',
+        notification_id: data.notification_id ?? null,
+      },
     })
   );
 });
 
-// Tap notification → open the app at the right URL
+// Tap notification → record the tap, then open the app at the right URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? '/';
+  const notifData = event.notification.data ?? {};
+  const url = notifData.url ?? '/';
+
+  if (notifData.notification_id) {
+    fetch('/api/push/tap', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: notifData.notification_id }),
+    }).catch(() => {});
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {

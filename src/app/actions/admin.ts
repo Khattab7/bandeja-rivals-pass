@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { sendNotification } from '@/lib/notifications';
 
 async function assertAdmin() {
   const supabase = await createClient();
@@ -367,4 +368,234 @@ export async function adminApplyGlobalAdjustment(amount: number, reason: string)
   } catch { /* table may not exist yet */ }
 
   return { success: true, affected: players.length };
+}
+
+// ── Announcements ─────────────────────────────────────────────
+
+export type AnnouncementAudience = 'all' | 'paid' | 'free' | 'city' | 'specific';
+
+export async function adminSearchPlayersForAnnouncement(query: string) {
+  await assertAdmin();
+  if (!query.trim()) return { players: [] };
+  const service = createServiceClient();
+  const q = query.trim();
+
+  // Search by name / username
+  const { data: byName } = await service
+    .from('player_profiles')
+    .select('id, user_id, first_name, last_name, display_name, username')
+    .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,display_name.ilike.%${q}%,username.ilike.%${q}%`)
+    .eq('onboarding_completed', true)
+    .limit(10);
+
+  // Search by phone via members table
+  const { data: byPhone } = await service
+    .from('members')
+    .select('id, phone, name')
+    .ilike('phone', `%${q}%`)
+    .limit(10);
+
+  let byPhonePlayers: typeof byName = [];
+  if (byPhone?.length) {
+    const memberIds = byPhone.map((m) => m.id);
+    const { data } = await service
+      .from('player_profiles')
+      .select('id, user_id, first_name, last_name, display_name, username')
+      .in('member_id', memberIds)
+      .eq('onboarding_completed', true);
+    byPhonePlayers = data ?? [];
+  }
+
+  // Merge and deduplicate by player id
+  const seen = new Set<string>();
+  const merged = [...(byName ?? []), ...byPhonePlayers].filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+
+  return {
+    players: merged.map((p) => ({
+      player_id: p.id,
+      user_id: p.user_id,
+      display_name: (p.display_name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()) || p.username || 'Player',
+    })),
+  };
+}
+
+async function resolveAudienceUserIds(
+  audience: AnnouncementAudience,
+  city?: string,
+  specificPlayerIds?: string[],
+): Promise<Array<{ user_id: string; player_id: string }>> {
+  const service = createServiceClient();
+
+  if (audience === 'specific') {
+    if (!specificPlayerIds?.length) return [];
+    const { data } = await service
+      .from('player_profiles')
+      .select('id, user_id')
+      .in('id', specificPlayerIds);
+    return (data ?? []).map((p) => ({ user_id: p.user_id, player_id: p.id }));
+  }
+
+  if (audience === 'paid') {
+    // Players with an active member record
+    const { data } = await service
+      .from('player_profiles')
+      .select('id, user_id, member_id')
+      .eq('onboarding_completed', true)
+      .not('member_id', 'is', null);
+    const memberIds = (data ?? []).map((p) => p.member_id).filter(Boolean) as string[];
+    if (!memberIds.length) return [];
+    const { data: activeMembers } = await service
+      .from('members')
+      .select('id')
+      .in('id', memberIds)
+      .eq('is_active', true);
+    const activeMemberIds = new Set((activeMembers ?? []).map((m) => m.id));
+    return (data ?? [])
+      .filter((p) => p.member_id && activeMemberIds.has(p.member_id))
+      .map((p) => ({ user_id: p.user_id, player_id: p.id }));
+  }
+
+  if (audience === 'free') {
+    const { data } = await service
+      .from('player_profiles')
+      .select('id, user_id, member_id')
+      .eq('onboarding_completed', true);
+    const memberIds = (data ?? []).filter((p) => p.member_id).map((p) => p.member_id) as string[];
+    let activeMemberIds = new Set<string>();
+    if (memberIds.length) {
+      const { data: activeMembers } = await service
+        .from('members').select('id').in('id', memberIds).eq('is_active', true);
+      activeMemberIds = new Set((activeMembers ?? []).map((m) => m.id));
+    }
+    return (data ?? [])
+      .filter((p) => !p.member_id || !activeMemberIds.has(p.member_id))
+      .map((p) => ({ user_id: p.user_id, player_id: p.id }));
+  }
+
+  if (audience === 'city' && city) {
+    const { data } = await service
+      .from('player_profiles')
+      .select('id, user_id')
+      .eq('onboarding_completed', true)
+      .ilike('city', city);
+    return (data ?? []).map((p) => ({ user_id: p.user_id, player_id: p.id }));
+  }
+
+  // 'all'
+  const { data } = await service
+    .from('player_profiles')
+    .select('id, user_id')
+    .eq('onboarding_completed', true);
+  return (data ?? []).map((p) => ({ user_id: p.user_id, player_id: p.id }));
+}
+
+export async function adminPreviewAnnouncement(audience: AnnouncementAudience, city?: string, specificPlayerIds?: string[]) {
+  await assertAdmin();
+  const recipients = await resolveAudienceUserIds(audience, city, specificPlayerIds);
+  return { count: recipients.length };
+}
+
+export async function adminSendAnnouncement(params: {
+  title: string;
+  body: string;
+  audience: AnnouncementAudience;
+  city?: string;
+  specificPlayerIds?: string[];
+}) {
+  const user = await assertAdmin();
+  const { title, body, audience, city, specificPlayerIds } = params;
+  if (!title.trim() || !body.trim()) return { success: false, error: 'Title and body are required.' };
+
+  const service = createServiceClient();
+  const recipients = await resolveAudienceUserIds(audience, city, specificPlayerIds);
+
+  const targetFilters: Record<string, unknown> = { audience };
+  if (city) targetFilters.city = city;
+  if (specificPlayerIds?.length) targetFilters.player_ids = specificPlayerIds;
+
+  // Insert announcement record
+  const { data: ann, error: annErr } = await service
+    .from('admin_announcements')
+    .insert({
+      title: title.trim(),
+      body: body.trim(),
+      target_filters_json: targetFilters,
+      channels: ['in_app'],
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      audience_count: recipients.length,
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
+
+  if (annErr) return { success: false, error: annErr.message };
+
+  // Fan out in-app notifications (batched to avoid timeout on large audiences)
+  let sent = 0;
+  for (const r of recipients) {
+    try {
+      await sendNotification({
+        type_key: 'admin_announcement',
+        category: 'admin_announcement',
+        priority: 'normal',
+        recipient_user_id: r.user_id,
+        recipient_player_id: r.player_id,
+        title: title.trim(),
+        body: body.trim(),
+        related_entity_type: 'admin_announcement',
+        related_entity_id: ann.id,
+      });
+      sent++;
+    } catch { /* continue on individual failure */ }
+  }
+
+  return { success: true, sent, total: recipients.length };
+}
+
+export async function adminGetAnnouncementStats(announcementId: string) {
+  await assertAdmin();
+  const service = createServiceClient();
+
+  const { data: notifs } = await service
+    .from('notifications')
+    .select('id, is_read')
+    .eq('related_entity_id', announcementId)
+    .eq('related_entity_type', 'admin_announcement');
+
+  const total = notifs?.length ?? 0;
+  const inAppRead = notifs?.filter((n) => n.is_read).length ?? 0;
+  const notifIds = notifs?.map((n) => n.id) ?? [];
+
+  if (notifIds.length === 0) return { total: 0, inAppRead: 0, pushDelivered: 0, pushTapped: 0 };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: deliveries } = await (service as any)
+    .from('notification_deliveries')
+    .select('status, clicked_at')
+    .in('notification_id', notifIds)
+    .eq('channel', 'browser_push');
+
+  const pushDelivered = (deliveries as { status: string; clicked_at: string | null }[] | null)
+    ?.filter((d) => d.status === 'delivered').length ?? 0;
+  const pushTapped = (deliveries as { status: string; clicked_at: string | null }[] | null)
+    ?.filter((d) => d.clicked_at !== null).length ?? 0;
+
+  return { total, inAppRead, pushDelivered, pushTapped };
+}
+
+export async function adminGetAnnouncements() {
+  await assertAdmin();
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from('admin_announcements')
+    .select('id, title, body, target_filters_json, status, sent_at, audience_count, created_at')
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) return { announcements: [], error: error.message };
+  return { announcements: data ?? [] };
 }
