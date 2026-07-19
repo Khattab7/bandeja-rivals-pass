@@ -63,15 +63,15 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className={`${inter.variable} min-h-full bg-brand-black text-brand-white antialiased`}>
-        {/* Splash — raw HTML so it appears before any JS loads */}
-        <div id="splash-screen">
+        {/* Splash — hidden by default; script reveals it only in PWA mode */}
+        <div id="splash-screen" style={{ display: 'none' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bandeja-logo.png" alt="BANDEJA" width={180} height={44} style={{ objectFit: 'contain' }} />
           <p id="splash-tag">Swipe · Battle · Repeat</p>
           <div id="splash-dot" />
         </div>
-        {/* Runs synchronously — hides splash before first paint if already shown this session */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){var e=document.getElementById('splash-screen');if(!e)return;var pwa=window.matchMedia('(display-mode:standalone)').matches||window.navigator.standalone===true;if(!pwa||window.location.pathname.startsWith('/admin')){e.style.display='none';return;}if(sessionStorage.getItem('s')){e.style.display='none';return;}sessionStorage.setItem('s','1');setTimeout(function(){e.style.opacity='0';setTimeout(function(){e.style.display='none';},500);},1600);}())` }} />
+        {/* Show splash only in PWA standalone mode, first visit, not on /admin */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var e=document.getElementById('splash-screen');if(!e)return;var pwa=window.matchMedia('(display-mode:standalone)').matches||window.navigator.standalone===true;if(!pwa||window.location.pathname.startsWith('/admin'))return;if(sessionStorage.getItem('s'))return;sessionStorage.setItem('s','1');e.style.display='';setTimeout(function(){e.style.opacity='0';setTimeout(function(){e.style.display='none';},500);},1600);}())` }} />
         {children}
         <PWARegister />
       </body>
