@@ -15,7 +15,7 @@ export default function PWARegister() {
     if (!('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then(async (reg) => {
         if (!('PushManager' in window) || Notification.permission !== 'granted') return;
         const existing = await reg.pushManager.getSubscription();
