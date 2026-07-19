@@ -19,6 +19,13 @@ import {
   adminSearchPlayersForAnnouncement,
   type AnnouncementAudience,
 } from "@/app/actions/admin";
+import {
+  SCENARIOS,
+  calculateExpectedScore,
+  calculateRatingChange,
+  calculateSteps0RatingChange,
+  roundHalfUp,
+} from "@/lib/bandeja-rating";
 
 const G = { fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif" };
 const I = { fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" };
@@ -27,7 +34,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 }
 
-type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce";
+type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator";
 
 export default function AdminPanel({
   members: initial,
@@ -60,6 +67,7 @@ export default function AdminPanel({
     { key: "bars", label: "Bars" },
     { key: "quests", label: "Quests" },
     { key: "announce", label: "Announce" },
+    { key: "simulator", label: "Simulator" },
   ];
 
   async function toggleActive(member: Member) {
@@ -169,6 +177,7 @@ export default function AdminPanel({
         {activeTab === "bars" && <BarsTab />}
         {activeTab === "quests" && <QuestsTab />}
         {activeTab === "announce" && <AnnounceTab />}
+        {activeTab === "simulator" && <SimulatorTab />}
       </main>
     </div>
   );
@@ -1006,6 +1015,400 @@ function QuestsTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Simulator Tab ─────────────────────────────────────────────
+
+function SimulatorTab() {
+  const [p1A, setP1A] = useState(500);
+  const [p2A, setP2A] = useState(500);
+  const [p1B, setP1B] = useState(500);
+  const [p2B, setP2B] = useState(500);
+  const [scenarioIndex, setScenarioIndex] = useState(5); // A wins 6-4
+  const [barsReward, setBarsReward] = useState(100);
+
+  // ── Pure math (no server call) ────────────────────────────
+  const teamARating = (p1A + p2A) / 2;
+  const teamBRating = (p1B + p2B) / 2;
+
+  const expected = calculateExpectedScore(teamARating, teamBRating);
+  const { steps, expectedScenarioIndex, favoredSide } = expected;
+
+  const scenario = SCENARIOS.find((s) => s.index === scenarioIndex)!;
+  const winningSide = scenario.winner as 'A' | 'B';
+
+  const { teamAChange, teamBChange } = steps === 0
+    ? calculateSteps0RatingChange(scenarioIndex)
+    : calculateRatingChange(scenarioIndex, expectedScenarioIndex!);
+
+  const aPlayerChange = roundHalfUp(teamAChange / 2);
+  const bPlayerChange = roundHalfUp(teamBChange / 2);
+
+  let beatExpectedSide: 'A' | 'B' | null;
+  if (steps === 0) {
+    beatExpectedSide = winningSide;
+  } else if (expectedScenarioIndex === null || scenarioIndex === expectedScenarioIndex) {
+    beatExpectedSide = null;
+  } else {
+    beatExpectedSide = (scenarioIndex - expectedScenarioIndex) < 0 ? 'A' : 'B';
+  }
+  const isExactExpected = steps > 0 && beatExpectedSide === null;
+
+  function getBarsPerPlayer(side: 'A' | 'B'): number {
+    if (steps === 0) return side === winningSide ? barsReward / 2 : 0;
+    if (isExactExpected) return side === winningSide ? barsReward * 0.75 / 2 : barsReward * 0.25 / 2;
+    const share = barsReward * 0.5 / 2;
+    let amt = 0;
+    if (side === winningSide) amt += share;
+    if (side === beatExpectedSide) amt += share;
+    return amt;
+  }
+
+  const aBars = getBarsPerPlayer('A');
+  const bBars = getBarsPerPlayer('B');
+
+  const aWinStreak = winningSide === 'A' ? 1 : 0;
+  const bWinStreak = winningSide === 'B' ? 1 : 0;
+  const aBeatExpStreak = steps === 0
+    ? (winningSide === 'A' ? 1 : 0)
+    : isExactExpected ? 0
+    : (beatExpectedSide === 'A' ? 1 : 0);
+  const bBeatExpStreak = steps === 0
+    ? (winningSide === 'B' ? 1 : 0)
+    : isExactExpected ? 0
+    : (beatExpectedSide === 'B' ? 1 : 0);
+
+  const expectedScenario = expectedScenarioIndex != null ? SCENARIOS.find((s) => s.index === expectedScenarioIndex) : null;
+  const expectedLabel = expectedScenario
+    ? `${expectedScenario.winner} wins ${expectedScenario.label}`
+    : '—';
+
+  const diffLabel = (() => {
+    if (steps === 0) return 'Balanced (Steps = 0)';
+    const side = favoredSide === 'A' ? 'Team A' : 'Team B';
+    if (steps >= 5) return `${side} heavy favorite (Steps = ${steps})`;
+    if (steps >= 3) return `${side} favorite (Steps = ${steps})`;
+    return `${side} slight favorite (Steps = ${steps})`;
+  })();
+
+  const ratingFmt = (n: number) => {
+    const s = n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
+    return n > 0 ? `+${s}` : s;
+  };
+  const barsFmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
+
+  // ── Bars breakdown label ──────────────────────────────────
+  function barsBreakdown(side: 'A' | 'B'): string {
+    if (steps === 0) return side === winningSide ? 'Winner (Steps=0 full pool)' : 'Did not win';
+    if (isExactExpected) return side === winningSide ? 'Winner — exact expected (75%)' : 'Loser — exact expected (25%)';
+    const parts: string[] = [];
+    if (side === winningSide) parts.push('Winner (50%)');
+    if (side === beatExpectedSide) parts.push('Beat expected (50%)');
+    return parts.length ? parts.join(' + ') : 'Neither winner nor beat-expected';
+  }
+
+  // ── Input helpers ─────────────────────────────────────────
+  function ratingInput(value: number, onChange: (v: number) => void, label: string) {
+    return (
+      <div className="space-y-1">
+        <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>{label}</p>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v)) onChange(v); }}
+          className="w-full bg-transparent border border-white/20 text-white px-3 py-2 text-sm outline-none focus:border-brand-green transition-colors font-mono"
+          style={I}
+          min={100} max={2000}
+        />
+      </div>
+    );
+  }
+
+  const changeColor = (n: number) => n > 0 ? '#8CF702' : n < 0 ? '#ef4444' : '#888';
+  const streakColor = (n: number) => n > 0 ? '#8CF702' : '#888';
+
+  return (
+    <div className="max-w-3xl space-y-8">
+
+      {/* ── Inputs ────────────────────────────────────────── */}
+      <section>
+        <h3 className="text-white/40 text-[9px] tracking-widest uppercase mb-4" style={G}>Match Inputs</h3>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* Team A */}
+          <div className="border border-white/10 p-4 space-y-3" style={{ background: '#111' }}>
+            <p className="text-brand-green text-[10px] tracking-widest uppercase font-bold" style={G}>Team A</p>
+            {ratingInput(p1A, setP1A, 'Player 1 Rating')}
+            {ratingInput(p2A, setP2A, 'Player 2 Rating')}
+            <div className="border-t border-white/10 pt-2">
+              <p className="text-white/30 text-[9px]" style={I}>Avg: <span className="text-white font-mono">{teamARating % 1 === 0 ? teamARating : teamARating.toFixed(1)}</span></p>
+            </div>
+          </div>
+
+          {/* Team B */}
+          <div className="border border-white/10 p-4 space-y-3" style={{ background: '#111' }}>
+            <p className="text-white/70 text-[10px] tracking-widest uppercase font-bold" style={G}>Team B</p>
+            {ratingInput(p1B, setP1B, 'Player 1 Rating')}
+            {ratingInput(p2B, setP2B, 'Player 2 Rating')}
+            <div className="border-t border-white/10 pt-2">
+              <p className="text-white/30 text-[9px]" style={I}>Avg: <span className="text-white font-mono">{teamBRating % 1 === 0 ? teamBRating : teamBRating.toFixed(1)}</span></p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Score select */}
+          <div className="space-y-1">
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Actual Score</p>
+            <select
+              value={scenarioIndex}
+              onChange={(e) => setScenarioIndex(Number(e.target.value))}
+              className="w-full bg-[#111] border border-white/20 text-white px-3 py-2 text-sm outline-none focus:border-brand-green transition-colors"
+              style={I}
+            >
+              <optgroup label="Team A wins">
+                {SCENARIOS.filter((s) => s.winner === 'A').map((s) => (
+                  <option key={s.index} value={s.index}>A wins {s.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Team B wins">
+                {SCENARIOS.filter((s) => s.winner === 'B').map((s) => (
+                  <option key={s.index} value={s.index}>B wins {s.label}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Bars reward */}
+          <div className="space-y-1">
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Bars Reward (total per match)</p>
+            <input
+              type="number"
+              value={barsReward}
+              onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v > 0) setBarsReward(v); }}
+              className="w-full bg-transparent border border-white/20 text-white px-3 py-2 text-sm outline-none focus:border-brand-green transition-colors font-mono"
+              style={I}
+              min={0}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Results ───────────────────────────────────────── */}
+      <section className="space-y-4">
+        <h3 className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Calculated Results</h3>
+
+        {/* Match context strip */}
+        <div className="border border-white/10 p-4" style={{ background: '#0d0d0d' }}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-center">
+              <p className="text-white/30 text-[9px] tracking-widest uppercase" style={G}>Team A Avg</p>
+              <p className="text-white text-2xl font-bold font-mono" style={G}>{teamARating % 1 === 0 ? teamARating : teamARating.toFixed(1)}</p>
+            </div>
+            <div className="flex-1 text-center px-3">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[9px] tracking-widest uppercase px-3 py-1 border" style={{
+                  ...G,
+                  color: steps === 0 ? '#888' : '#facc15',
+                  borderColor: steps === 0 ? '#33333380' : '#facc1540',
+                  background: steps === 0 ? 'transparent' : 'rgba(250,204,21,0.05)',
+                }}>
+                  {diffLabel}
+                </span>
+                {steps > 0 && (
+                  <p className="text-white/30 text-[9px]" style={I}>
+                    Expected: <span className="text-white/60">{expectedLabel}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-white/30 text-[9px] tracking-widest uppercase" style={G}>Team B Avg</p>
+              <p className="text-white text-2xl font-bold font-mono" style={G}>{teamBRating % 1 === 0 ? teamBRating : teamBRating.toFixed(1)}</p>
+            </div>
+          </div>
+
+          {/* Actual score result row */}
+          <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+            <div>
+              <p className="text-white/30 text-[9px] tracking-widest uppercase" style={G}>Actual Score</p>
+              <p className="text-white text-base font-bold" style={G}>
+                {scenario.winner} wins {scenario.label}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-white/30 text-[9px] tracking-widest uppercase" style={G}>Beat Expected</p>
+              {beatExpectedSide ? (
+                <p className="text-brand-green text-sm font-bold" style={G}>Team {beatExpectedSide}</p>
+              ) : isExactExpected ? (
+                <p className="text-white/40 text-sm" style={G}>Exact — neither</p>
+              ) : (
+                <p className="text-white/40 text-sm" style={G}>N/A (balanced)</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Three result panels */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+          {/* Rating changes */}
+          <div className="border border-white/10 p-4 space-y-4" style={{ background: '#111' }}>
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Rating Changes</p>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest" style={G}>Team A</p>
+                <p className="text-2xl font-bold font-mono" style={{ ...G, color: changeColor(teamAChange) }}>
+                  {ratingFmt(teamAChange)}
+                </p>
+                <p className="text-[10px] mt-0.5" style={{ ...I, color: changeColor(aPlayerChange) }}>
+                  {ratingFmt(aPlayerChange)} per player
+                </p>
+              </div>
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest" style={G}>Team B</p>
+                <p className="text-2xl font-bold font-mono" style={{ ...G, color: changeColor(teamBChange) }}>
+                  {ratingFmt(teamBChange)}
+                </p>
+                <p className="text-[10px] mt-0.5" style={{ ...I, color: changeColor(bPlayerChange) }}>
+                  {ratingFmt(bPlayerChange)} per player
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-white/25 text-[9px] leading-relaxed" style={I}>
+                {steps === 0
+                  ? 'Steps=0: gain = (7 − loser games) × 10'
+                  : `Diff = ${scenarioIndex} − ${expectedScenarioIndex} = ${scenarioIndex - (expectedScenarioIndex ?? 0)}, change = diff × −10`}
+              </p>
+            </div>
+          </div>
+
+          {/* Bars */}
+          <div className="border border-white/10 p-4 space-y-4" style={{ background: '#111' }}>
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Bars per Player</p>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest" style={G}>Team A</p>
+                <p className="text-2xl font-bold font-mono" style={{ ...G, color: aBars > 0 ? '#8CF702' : '#555' }}>
+                  {barsFmt(aBars)}
+                </p>
+                <p className="text-white/30 text-[9px] mt-0.5 leading-snug" style={I}>{barsBreakdown('A')}</p>
+              </div>
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest" style={G}>Team B</p>
+                <p className="text-2xl font-bold font-mono" style={{ ...G, color: bBars > 0 ? '#8CF702' : '#555' }}>
+                  {barsFmt(bBars)}
+                </p>
+                <p className="text-white/30 text-[9px] mt-0.5 leading-snug" style={I}>{barsBreakdown('B')}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-white/25 text-[9px] leading-relaxed" style={I}>
+                Total: {barsFmt(aBars * 2 + bBars * 2)} Bars distributed
+                {' '}(of {barsReward} reward)
+              </p>
+            </div>
+          </div>
+
+          {/* Streaks */}
+          <div className="border border-white/10 p-4 space-y-4" style={{ background: '#111' }}>
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Streak Impact</p>
+
+            <div className="space-y-3">
+              {/* Team A streaks */}
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest mb-1.5" style={G}>Team A</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>Win streak</span>
+                    <span className="text-[10px] font-mono font-bold" style={{ ...G, color: streakColor(aWinStreak) }}>
+                      {aWinStreak > 0 ? '+1' : 'Reset 0'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>Beat-exp streak</span>
+                    <span className="text-[10px] font-mono font-bold" style={{ ...G, color: streakColor(aBeatExpStreak) }}>
+                      {aBeatExpStreak > 0 ? '+1' : isExactExpected ? 'Reset 0' : '0'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* Team B streaks */}
+              <div>
+                <p className="text-white/30 text-[9px] uppercase tracking-widest mb-1.5" style={G}>Team B</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>Win streak</span>
+                    <span className="text-[10px] font-mono font-bold" style={{ ...G, color: streakColor(bWinStreak) }}>
+                      {bWinStreak > 0 ? '+1' : 'Reset 0'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>Beat-exp streak</span>
+                    <span className="text-[10px] font-mono font-bold" style={{ ...G, color: streakColor(bBeatExpStreak) }}>
+                      {bBeatExpStreak > 0 ? '+1' : isExactExpected ? 'Reset 0' : '0'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-white/25 text-[9px] leading-relaxed" style={I}>
+                {steps === 0
+                  ? 'Steps=0: winner gets both win + beat-exp streak. Loser: both reset.'
+                  : isExactExpected
+                    ? 'Exact expected: both beat-exp streaks reset. Winner win-streak +1.'
+                    : `Team ${beatExpectedSide} beat expected: their beat-exp streak +1.`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* New ratings preview */}
+        <div className="border border-white/10 p-4" style={{ background: '#0d0d0d' }}>
+          <p className="text-white/40 text-[9px] tracking-widest uppercase mb-3" style={G}>Resulting Ratings</p>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <p className="text-white/30 text-[9px] tracking-widest uppercase mb-2" style={G}>Team A</p>
+              <div className="space-y-1">
+                {[p1A, p2A].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>P{i + 1}</span>
+                    <span className="text-[10px] font-mono" style={I}>
+                      <span className="text-white/40">{r}</span>
+                      <span style={{ color: changeColor(aPlayerChange) }}> {ratingFmt(aPlayerChange)}</span>
+                      <span className="text-white"> = {r + aPlayerChange}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-white/30 text-[9px] tracking-widest uppercase mb-2" style={G}>Team B</p>
+              <div className="space-y-1">
+                {[p1B, p2B].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-white/40 text-[9px]" style={I}>P{i + 1}</span>
+                    <span className="text-[10px] font-mono" style={I}>
+                      <span className="text-white/40">{r}</span>
+                      <span style={{ color: changeColor(bPlayerChange) }}> {ratingFmt(bPlayerChange)}</span>
+                      <span className="text-white"> = {r + bPlayerChange}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
