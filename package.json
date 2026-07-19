@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:cycle": "tsx --env-file=.env.local scripts/test-match-cycle.ts",
+    "test:cycle:prod": "TEST_APP_URL=https://bandeja-rivals-pass.vercel.app tsx --env-file=.env.local scripts/test-match-cycle.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -29,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

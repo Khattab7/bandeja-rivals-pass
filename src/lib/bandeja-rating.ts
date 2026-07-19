@@ -141,7 +141,7 @@ const STEPS0_WINNER_GAIN: Record<number, number> = {
 
 export function calculateSteps0RatingChange(scenarioIndex: number): { teamAChange: number; teamBChange: number } {
   const scenario = SCENARIOS.find((s) => s.index === scenarioIndex)!;
-  const gain = STEPS0_WINNER_GAIN[scenario.winnerGames - scenario.loserGames] ?? 10;
+  const gain = (7 - scenario.loserGames) * 10;
   if (scenario.winner === 'A') {
     return { teamAChange: gain, teamBChange: -gain };
   } else {
