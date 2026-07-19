@@ -143,7 +143,11 @@ export default async function ProfilePage({
         profile={{
           id: profile.id,
           displayName,
+          display_name: profile.display_name,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
           username: profile.username,
+          avatar_url: profile.avatar_url,
           city: profile.city,
           primary_area: profile.primary_area,
           gender: profile.gender,
@@ -178,6 +182,7 @@ export default async function ProfilePage({
         memberInfo={memberInfo}
         isOwnProfile={isOwnProfile}
         appUrl={process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}
+        userId={isOwnProfile ? user.id : undefined}
       />
 
       <BottomNav />
