@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
+import NotificationBell from '@/components/NotificationBell';
 import ProfileClient from './ProfileClient';
 
 async function handleSignOut() {
@@ -118,6 +119,7 @@ export default async function ProfilePage({
         <BandejaLogo width={120} height={30} />
         {isOwnProfile && (
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span
               className="text-brand-green text-xs tracking-widest uppercase"
               style={{ fontFamily: 'Gobold, Arial Narrow, Arial, sans-serif' }}

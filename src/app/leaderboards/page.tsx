@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
+import NotificationBell from '@/components/NotificationBell';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 const I = { fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' };
@@ -85,7 +86,10 @@ export default async function LeaderboardsPage() {
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
-        <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Rankings</span>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Rankings</span>
+        </div>
       </header>
 
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 space-y-10">

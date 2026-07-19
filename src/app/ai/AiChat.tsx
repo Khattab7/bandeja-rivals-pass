@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import BandejaLogo from "@/components/BandejaLogo";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const G = { fontFamily: "Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif" };
 const I = { fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" };
@@ -40,6 +41,7 @@ function TypingDots() {
 }
 
 export default function AiChat({ playerName, playerRating }: { playerName: string; playerRating: number }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -150,11 +152,11 @@ export default function AiChat({ playerName, playerRating }: { playerName: strin
             <p className="text-white/30 text-[9px] leading-none mt-0.5" style={I}>Phase 1 · Read-only</p>
           </div>
         </div>
-        <Link href="/profile" className="text-white/30 hover:text-white/60 transition-colors">
+        <button onClick={() => router.back()} className="text-white/30 hover:text-white/60 transition-colors">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
-        </Link>
+        </button>
       </header>
 
       {/* Messages */}

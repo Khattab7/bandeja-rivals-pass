@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
+import NotificationBell from '@/components/NotificationBell';
 import DiscoveryFeed from './DiscoveryFeed';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
@@ -47,7 +48,10 @@ export default async function PlayPage({
       <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
         <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <BandejaLogo width={120} height={30} />
-          <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Play</span>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Play</span>
+          </div>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center px-6 gap-6 text-center">
           <div className="space-y-3">
@@ -76,7 +80,10 @@ export default async function PlayPage({
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
-        <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Find a Match</span>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Find a Match</span>
+        </div>
       </header>
 
       <DiscoveryFeed

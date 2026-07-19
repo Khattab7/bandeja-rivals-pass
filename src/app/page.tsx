@@ -18,5 +18,5 @@ export default async function Home() {
     redirect('/onboarding');
   }
 
-  redirect('/ai');
+  redirect('/matches');
 }

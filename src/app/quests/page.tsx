@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
+import NotificationBell from '@/components/NotificationBell';
 import QuestCard from './QuestCard';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
@@ -97,7 +98,10 @@ export default async function QuestsPage() {
     <div className="min-h-screen bg-brand-dark flex flex-col pb-safe-nav">
       <header className="flex items-center justify-between px-5 py-4 border-b border-white/10">
         <BandejaLogo width={120} height={30} />
-        <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Quests</span>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <span className="text-brand-green text-xs tracking-widest uppercase" style={G}>Quests</span>
+        </div>
       </header>
 
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 space-y-8">
