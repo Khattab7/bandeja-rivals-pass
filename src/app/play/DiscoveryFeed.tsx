@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getDiscoveryFeed, sendChallenge, type DiscoveryCandidate } from '@/app/actions/challenges';
+import ExploreFeed from './ExploreFeed';
 import {
   getOpenMatchFeed, applyToOpenMatch, cancelOpenMatchApplication,
   createOpenMatch, getMyOpenMatches, acceptOpenMatchApplication, cancelOpenMatch,
@@ -69,7 +70,7 @@ export default function DiscoveryFeed({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedTeamId, setSelectedTeamId] = useState(initialTeamId);
-  const [feedType, setFeedType] = useState<'teams' | 'open'>('teams');
+  const [feedType, setFeedType] = useState<'teams' | 'explore' | 'open'>('teams');
 
   // Team discovery state
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
@@ -230,11 +231,11 @@ export default function DiscoveryFeed({
 
       {/* ── Feed type tabs ─────────────────────────────────── */}
       <div className="flex border-b border-white/10">
-        {(['teams', 'open'] as const).map((type) => (
+        {(['teams', 'explore', 'open'] as const).map((type) => (
           <button key={type} onClick={() => setFeedType(type)}
             className="flex-1 py-3 text-[10px] tracking-widest uppercase transition-colors"
             style={{ ...G, color: feedType === type ? '#8CF702' : 'rgba(255,255,255,0.3)', borderBottom: feedType === type ? '2px solid #8CF702' : '2px solid transparent' }}>
-            {type === 'teams' ? 'Find Teams' : 'Open Matches'}
+            {type === 'teams' ? 'Find Teams' : type === 'explore' ? 'Explore' : 'Open Matches'}
           </button>
         ))}
       </div>
@@ -274,6 +275,15 @@ export default function DiscoveryFeed({
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Explore feed ──────────────────────────────────── */}
+      {feedType === 'explore' && (
+        <ExploreFeed
+          teams={teams}
+          selectedTeamId={selectedTeamId}
+          myPlayerId={myPlayerId}
+        />
       )}
 
       {/* ── Open matches feed ─────────────────────────────── */}

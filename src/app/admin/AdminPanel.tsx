@@ -20,6 +20,11 @@ import {
   type AnnouncementAudience,
 } from "@/app/actions/admin";
 import {
+  adminListExploreTiles, adminCreateExploreTile, adminUpdateExploreTile,
+  adminDeleteExploreTileRule, adminAddExploreTileRule,
+  type ExploreTileCard, type CreateExploreTileInput,
+} from "@/app/actions/explore";
+import {
   SCENARIOS,
   calculateExpectedScore,
   calculateRatingChange,
@@ -34,7 +39,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 }
 
-type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator";
+type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator" | "explore";
 
 export default function AdminPanel({
   members: initial,
@@ -68,6 +73,7 @@ export default function AdminPanel({
     { key: "quests", label: "Quests" },
     { key: "announce", label: "Announce" },
     { key: "simulator", label: "Simulator" },
+    { key: "explore", label: "Explore" },
   ];
 
   async function toggleActive(member: Member) {
@@ -178,6 +184,7 @@ export default function AdminPanel({
         {activeTab === "quests" && <QuestsTab />}
         {activeTab === "announce" && <AnnounceTab />}
         {activeTab === "simulator" && <SimulatorTab />}
+        {activeTab === "explore" && <ExploreAdminTab />}
       </main>
     </div>
   );
@@ -1705,6 +1712,268 @@ function AnnounceTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Explore Admin Tab ────────────────────────────────────────────────────────
+
+const ELIGIBILITY_KEYS = [
+  'my_rating_min', 'my_rating_max', 'rating_min', 'rating_max',
+  'gender_rule', 'match_history', 'ready_tonight', 'paid_membership',
+];
+const RANKING_KEYS = [
+  'rating_balance', 'higher_rated_opponents', 'lower_rated_opponents',
+  'same_area', 'ready_tonight', 'never_played',
+];
+const ACCESS_LEVELS = ['everyone', 'paid_members_only', 'free_locked_preview', 'invitation_only', 'admin_testing_only'];
+const TILE_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'live', 'paused', 'ended', 'archived', 'cancelled'];
+
+type TileRow = Awaited<ReturnType<typeof adminListExploreTiles>>["tiles"][0];
+
+function ExploreAdminTab() {
+  const [isPending, startTransition] = useTransition();
+  const [tiles, setTiles] = useState<TileRow[]>([]);
+  const [tabError, setTabError] = useState<string | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateExploreTileInput>({ title: "", access_level: "everyone" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [addRuleType, setAddRuleType] = useState<"eligibility" | "ranking">("eligibility");
+  const [newRuleKey, setNewRuleKey] = useState("my_rating_min");
+  const [newRuleMode, setNewRuleMode] = useState<"mandatory" | "notify_only">("mandatory");
+  const [newRuleValue, setNewRuleValue] = useState("");
+  const [ruleError, setRuleError] = useState<string | null>(null);
+
+  function loadTiles() {
+    setTabError(null);
+    startTransition(async () => {
+      const res = await adminListExploreTiles();
+      if (res.error) { setTabError(res.error); return; }
+      setTiles(res.tiles);
+    });
+  }
+
+  useEffect(() => { loadTiles(); }, []);
+
+  function handleCreate() {
+    setCreateError(null);
+    if (!createForm.title.trim()) { setCreateError("Title is required"); return; }
+    startTransition(async () => {
+      const res = await adminCreateExploreTile({ ...createForm, title: createForm.title.trim() });
+      if (res.error) { setCreateError(res.error); return; }
+      setShowCreateForm(false);
+      setCreateForm({ title: "", access_level: "everyone" });
+      loadTiles();
+    });
+  }
+
+  function handleStatusChange(tileId: string, status: string) {
+    setStatusUpdating(tileId);
+    startTransition(async () => {
+      await adminUpdateExploreTile(tileId, { status });
+      setStatusUpdating(null);
+      loadTiles();
+    });
+  }
+
+  function handleAddRule() {
+    if (!selectedTileId) return;
+    setRuleError(null);
+    let parsedValue: unknown = newRuleValue;
+    if (["my_rating_min", "my_rating_max", "rating_min", "rating_max"].includes(newRuleKey)) {
+      const n = Number(newRuleValue);
+      if (isNaN(n)) { setRuleError("Value must be a number for rating rules"); return; }
+      parsedValue = n;
+    } else if (newRuleKey === "ready_tonight" || newRuleKey === "paid_membership") {
+      parsedValue = true;
+    }
+    startTransition(async () => {
+      const res = await adminAddExploreTileRule(selectedTileId, addRuleType, {
+        rule_key: addRuleType === "eligibility" ? newRuleKey : undefined,
+        rule_mode: addRuleType === "eligibility" ? newRuleMode : undefined,
+        rule_value_json: addRuleType === "eligibility" ? parsedValue : undefined,
+        signal_key: addRuleType === "ranking" ? newRuleKey : undefined,
+        weight: addRuleType === "ranking" ? (Number(newRuleValue) || 1) : undefined,
+        priority: 0,
+      });
+      if (res.error) { setRuleError(res.error); return; }
+      setNewRuleValue("");
+      loadTiles();
+    });
+  }
+
+  function handleDeleteRule(ruleId: string, type: "eligibility" | "ranking") {
+    startTransition(async () => {
+      await adminDeleteExploreTileRule(ruleId, type);
+      loadTiles();
+    });
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-4xl">
+      <div className="flex items-center justify-between">
+        <h2 className="text-white text-sm tracking-widest uppercase" style={G}>Explore Tiles</h2>
+        <button onClick={() => setShowCreateForm((v) => !v)}
+          className="text-[10px] tracking-widest uppercase bg-brand-green text-black px-3 py-1.5 hover:bg-brand-green/90 transition-colors" style={G}>
+          + New Tile
+        </button>
+      </div>
+
+      {tabError && <p className="text-red-400 text-sm" style={I}>{tabError}</p>}
+      {isPending && tiles.length === 0 && <p className="text-white/30 text-sm" style={I}>Loading...</p>}
+
+      {showCreateForm && (
+        <div className="border border-white/20 p-4 space-y-3 bg-[#0a0a0a]">
+          <p className="text-white text-xs tracking-widest uppercase" style={G}>Create Tile</p>
+          {(["title", "subtitle", "description", "background_color"] as const).map((key) => (
+            <div key={key} className="space-y-1">
+              <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>{key.replace(/_/g, " ")}</p>
+              <input placeholder={key === "background_color" ? "#0d1a00" : key} maxLength={200}
+                className="w-full bg-transparent border border-white/20 text-white placeholder-white/20 px-3 py-2 text-sm outline-none focus:border-brand-green transition-colors" style={I}
+                value={(createForm[key] as string) ?? ""}
+                onChange={(e) => setCreateForm((p) => ({ ...p, [key]: e.target.value }))} />
+            </div>
+          ))}
+          <div className="space-y-1">
+            <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Access Level</p>
+            <select className="w-full bg-[#111] border border-white/20 text-white px-3 py-2 text-sm outline-none" style={I}
+              value={createForm.access_level}
+              onChange={(e) => setCreateForm((p) => ({ ...p, access_level: e.target.value }))}>
+              {ACCESS_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            {(["max_visible_candidates", "max_challenges_per_team"] as const).map((k) => (
+              <div key={k} className="flex-1 space-y-1">
+                <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>{k.replace(/_/g, " ")}</p>
+                <input type="number" placeholder="--"
+                  className="w-full bg-transparent border border-white/20 text-white placeholder-white/20 px-3 py-2 text-sm outline-none focus:border-brand-green transition-colors" style={I}
+                  value={(createForm[k] as number | null | undefined) ?? ""}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, [k]: e.target.value ? Number(e.target.value) : null }))} />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="expl_featured" checked={!!createForm.is_featured}
+              onChange={(e) => setCreateForm((p) => ({ ...p, is_featured: e.target.checked }))} />
+            <label htmlFor="expl_featured" className="text-white/50 text-xs" style={I}>Featured (large card)</label>
+          </div>
+          {createError && <p className="text-red-400 text-xs" style={I}>{createError}</p>}
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={isPending}
+              className="flex-1 bg-brand-green text-black py-2 text-xs tracking-widest uppercase font-bold disabled:opacity-40" style={G}>
+              {isPending ? "Creating..." : "Create Tile"}
+            </button>
+            <button onClick={() => setShowCreateForm(false)} className="border border-white/20 text-white/40 px-4 py-2 text-xs tracking-widest uppercase" style={G}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {tiles.map((tile) => (
+          <div key={tile.id} className={`border p-4 space-y-3 ${tile.id === selectedTileId ? "border-brand-green/40" : "border-white/10"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-white text-sm tracking-widest uppercase truncate" style={G}>{tile.title}</p>
+                  {tile.is_featured && <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 bg-brand-green/10 text-brand-green border border-brand-green/20" style={G}>Featured</span>}
+                </div>
+                {tile.subtitle && <p className="text-white/40 text-xs mt-0.5" style={I}>{tile.subtitle}</p>}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 border border-white/15 text-white/40" style={G}>{tile.access_level}</span>
+                  <span className={`text-[8px] tracking-widest uppercase px-1.5 py-0.5 border ${tile.status === "live" ? "text-brand-green border-brand-green/30 bg-brand-green/5" : tile.status === "draft" ? "text-white/40 border-white/10" : "text-yellow-400 border-yellow-400/20"}`} style={G}>{tile.status}</span>
+                </div>
+                <p className="text-white/20 text-[9px] mt-1 font-mono">{tile.id}</p>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <select disabled={statusUpdating === tile.id}
+                  className="bg-[#111] border border-white/20 text-white text-[10px] px-2 py-1 outline-none" style={G}
+                  value={tile.status}
+                  onChange={(e) => handleStatusChange(tile.id, e.target.value)}>
+                  {TILE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button onClick={() => setSelectedTileId(tile.id === selectedTileId ? null : tile.id)}
+                  className="text-[9px] tracking-widest uppercase border border-white/15 text-white/40 px-2 py-1 hover:border-white/30 transition-colors" style={G}>
+                  {tile.id === selectedTileId ? "Close" : "Rules"}
+                </button>
+              </div>
+            </div>
+
+            {tile.id === selectedTileId && (
+              <div className="border-t border-white/10 pt-3 space-y-4">
+                <div className="space-y-2">
+                  <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Eligibility Rules</p>
+                  {tile.eligibility_rules.length === 0 && <p className="text-white/20 text-xs" style={I}>None</p>}
+                  {tile.eligibility_rules.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 border border-white/10 px-3 py-2">
+                      <div>
+                        <span className="text-white text-xs font-mono">{r.rule_key}</span>
+                        <span className="text-white/40 text-xs ml-2" style={I}>= {JSON.stringify(r.rule_value_json)}</span>
+                        <span className={`text-[8px] tracking-widest uppercase ml-2 px-1 py-0.5 border ${r.rule_mode === "mandatory" ? "text-brand-green border-brand-green/20" : "text-yellow-400 border-yellow-400/20"}`} style={G}>{r.rule_mode}</span>
+                      </div>
+                      <button onClick={() => handleDeleteRule(r.id, "eligibility")} className="text-white/20 text-xs hover:text-red-400 transition-colors">X</button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Ranking Rules</p>
+                  {tile.ranking_rules.length === 0 && <p className="text-white/20 text-xs" style={I}>None</p>}
+                  {tile.ranking_rules.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 border border-white/10 px-3 py-2">
+                      <div>
+                        <span className="text-white text-xs font-mono">{r.signal_key}</span>
+                        <span className="text-white/40 text-xs ml-2" style={I}>weight: {r.weight} - p{r.priority}</span>
+                      </div>
+                      <button onClick={() => handleDeleteRule(r.id, "ranking")} className="text-white/20 text-xs hover:text-red-400 transition-colors">X</button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border border-white/10 p-3 space-y-2">
+                  <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Add Rule</p>
+                  <div className="flex gap-2">
+                    {(["eligibility", "ranking"] as const).map((t) => (
+                      <button key={t} onClick={() => setAddRuleType(t)}
+                        className={`flex-1 py-1.5 text-[9px] tracking-widest uppercase border transition-colors ${addRuleType === t ? "border-brand-green text-brand-green" : "border-white/15 text-white/30"}`} style={G}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <select className="flex-1 bg-[#111] border border-white/20 text-white text-xs px-2 py-1.5 outline-none" style={I}
+                      value={newRuleKey}
+                      onChange={(e) => setNewRuleKey(e.target.value)}>
+                      {(addRuleType === "eligibility" ? ELIGIBILITY_KEYS : RANKING_KEYS).map((k) => (
+                        <option key={k} value={k}>{k}</option>
+                      ))}
+                    </select>
+                    {addRuleType === "eligibility" && (
+                      <select className="bg-[#111] border border-white/20 text-white text-xs px-2 py-1.5 outline-none" style={I}
+                        value={newRuleMode}
+                        onChange={(e) => setNewRuleMode(e.target.value as "mandatory" | "notify_only")}>
+                        <option value="mandatory">mandatory</option>
+                        <option value="notify_only">notify_only</option>
+                      </select>
+                    )}
+                    <input placeholder={addRuleType === "eligibility" ? "value" : "weight"}
+                      className="w-20 bg-transparent border border-white/20 text-white placeholder-white/20 px-2 py-1.5 text-xs outline-none focus:border-brand-green transition-colors" style={I}
+                      value={newRuleValue}
+                      onChange={(e) => setNewRuleValue(e.target.value)} />
+                    <button onClick={handleAddRule} disabled={isPending}
+                      className="bg-brand-green text-black px-3 py-1.5 text-[9px] tracking-widest uppercase font-bold disabled:opacity-40" style={G}>
+                      Add
+                    </button>
+                  </div>
+                  {ruleError && <p className="text-red-400 text-[10px]" style={I}>{ruleError}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

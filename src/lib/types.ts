@@ -1817,6 +1817,279 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['leaderboard_notifications_log']['Insert']>;
         Relationships: [];
       };
+      // ── Module 10: Explore ────────────────────────────────────
+      explore_tiles: {
+        Row: {
+          id: string;
+          title: string;
+          subtitle: string | null;
+          description: string | null;
+          image_url: string | null;
+          icon_key: string | null;
+          background_color: string;
+          content_type: 'team_discovery';
+          access_level: 'everyone' | 'paid_members_only' | 'free_locked_preview' | 'admin_testing_only' | 'invitation_only';
+          status: 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'live' | 'paused' | 'ended' | 'archived' | 'cancelled';
+          position_order: number;
+          is_featured: boolean;
+          is_sponsored: boolean;
+          sponsor_name: string | null;
+          sponsored_label: string | null;
+          max_visible_candidates: number | null;
+          max_swipes_per_team: number | null;
+          max_challenges_per_team: number | null;
+          empty_state_behavior: 'hide';
+          paid_member_boost_enabled: boolean;
+          approved_by: string | null;
+          approved_at: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          subtitle?: string | null;
+          description?: string | null;
+          image_url?: string | null;
+          icon_key?: string | null;
+          background_color?: string;
+          content_type?: 'team_discovery';
+          access_level?: 'everyone' | 'paid_members_only' | 'free_locked_preview' | 'admin_testing_only' | 'invitation_only';
+          status?: 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'live' | 'paused' | 'ended' | 'archived' | 'cancelled';
+          position_order?: number;
+          is_featured?: boolean;
+          is_sponsored?: boolean;
+          sponsor_name?: string | null;
+          sponsored_label?: string | null;
+          max_visible_candidates?: number | null;
+          max_swipes_per_team?: number | null;
+          max_challenges_per_team?: number | null;
+          empty_state_behavior?: 'hide';
+          paid_member_boost_enabled?: boolean;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_tiles']['Insert']>;
+        Relationships: [];
+      };
+      explore_tile_eligibility_rules: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          rule_key: string;
+          rule_mode: 'mandatory' | 'notify_only' | 'not_used';
+          operator: string | null;
+          rule_value_json: unknown;
+          priority: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          rule_key: string;
+          rule_mode?: 'mandatory' | 'notify_only' | 'not_used';
+          operator?: string | null;
+          rule_value_json?: unknown;
+          priority?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_tile_eligibility_rules']['Insert']>;
+        Relationships: [];
+      };
+      explore_tile_ranking_rules: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          signal_key: string;
+          weight: number;
+          priority: number;
+          direction: 'asc' | 'desc';
+          configuration_json: unknown;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          signal_key: string;
+          weight?: number;
+          priority: number;
+          direction?: 'asc' | 'desc';
+          configuration_json?: unknown;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_tile_ranking_rules']['Insert']>;
+        Relationships: [];
+      };
+      explore_tile_schedules: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          starts_at: string | null;
+          ends_at: string | null;
+          timezone: string;
+          is_recurring: boolean;
+          recurrence_rule: string | null;
+          auto_archive_after_end: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          timezone?: string;
+          is_recurring?: boolean;
+          recurrence_rule?: string | null;
+          auto_archive_after_end?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_tile_schedules']['Insert']>;
+        Relationships: [];
+      };
+      explore_tile_invitations: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          invited_player_id: string | null;
+          invited_team_id: string | null;
+          status: 'active' | 'revoked' | 'expired';
+          invited_by: string | null;
+          invited_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          invited_player_id?: string | null;
+          invited_team_id?: string | null;
+          status?: 'active' | 'revoked' | 'expired';
+          invited_by?: string | null;
+          invited_at?: string;
+          expires_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['explore_tile_invitations']['Insert']>;
+        Relationships: [];
+      };
+      explore_sessions: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          opened_by_user_id: string;
+          selected_team_id: string;
+          configuration_snapshot_json: Record<string, unknown>;
+          configuration_hash: string;
+          candidate_count: number;
+          candidates_viewed: number;
+          actions_count: number;
+          started_at: string;
+          ended_at: string | null;
+          exit_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          opened_by_user_id: string;
+          selected_team_id: string;
+          configuration_snapshot_json?: Record<string, unknown>;
+          configuration_hash?: string;
+          candidate_count?: number;
+          candidates_viewed?: number;
+          actions_count?: number;
+          started_at?: string;
+          ended_at?: string | null;
+          exit_reason?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['explore_sessions']['Insert']>;
+        Relationships: [];
+      };
+      explore_actions: {
+        Row: {
+          id: string;
+          explore_session_id: string;
+          explore_tile_id: string;
+          selected_team_id: string;
+          candidate_team_id: string | null;
+          action_type: 'impression' | 'open' | 'candidate_view' | 'pass' | 'save' | 'view_profile' | 'preview_match' | 'challenge' | 'mark_ready_tonight' | 'upgrade_click' | 'exit';
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          explore_session_id: string;
+          explore_tile_id: string;
+          selected_team_id: string;
+          candidate_team_id?: string | null;
+          action_type: 'impression' | 'open' | 'candidate_view' | 'pass' | 'save' | 'view_profile' | 'preview_match' | 'challenge' | 'mark_ready_tonight' | 'upgrade_click' | 'exit';
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_actions']['Insert']>;
+        Relationships: [];
+      };
+      explore_source_attributions: {
+        Row: {
+          id: string;
+          explore_tile_id: string;
+          explore_session_id: string | null;
+          source_entity_type: 'challenge' | 'match' | 'membership_conversion' | 'quest_completion';
+          source_entity_id: string;
+          configuration_snapshot_json: Record<string, unknown>;
+          configuration_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          explore_tile_id: string;
+          explore_session_id?: string | null;
+          source_entity_type: 'challenge' | 'match' | 'membership_conversion' | 'quest_completion';
+          source_entity_id: string;
+          configuration_snapshot_json?: Record<string, unknown>;
+          configuration_hash?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['explore_source_attributions']['Insert']>;
+        Relationships: [];
+      };
+      team_ready_statuses: {
+        Row: {
+          id: string;
+          team_id: string;
+          readiness_type: string;
+          status: 'active' | 'expired' | 'cancelled';
+          starts_at: string;
+          expires_at: string;
+          activated_by_player_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          readiness_type?: string;
+          status?: 'active' | 'expired' | 'cancelled';
+          starts_at?: string;
+          expires_at: string;
+          activated_by_player_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['team_ready_statuses']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
