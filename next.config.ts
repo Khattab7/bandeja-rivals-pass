@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Keep heavy server-side packages out of the bundled Lambda JS so V8 only
+  // parses them on first require() rather than at every cold-start.
+  serverExternalPackages: [
+    '@supabase/supabase-js',
+    '@supabase/ssr',
+    'web-push',
+    'sharp',
+  ],
   async headers() {
     return [
       {

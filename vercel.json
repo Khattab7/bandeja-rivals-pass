@@ -1,4 +1,5 @@
 {
+  "fluidCompute": true,
   "crons": [
     {
       "path": "/api/cron/refresh-leaderboards",
