@@ -695,17 +695,52 @@ export default function ProfileClient({
             </section>
           )}
 
-          {/* Not match ready warning */}
-          {isOwnProfile && !profile.match_ready && (
-            <div className="border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
-              <p className="text-yellow-400 text-xs tracking-wide" style={I}>
-                Your profile is incomplete. Complete it to start playing rated matches.
-              </p>
-              <Link href="/onboarding" className="text-yellow-400 text-[10px] tracking-widest uppercase mt-2 inline-block hover:text-yellow-300 transition-colors" style={G}>
-                Complete Profile →
-              </Link>
-            </div>
-          )}
+          {/* Profile completion checklist */}
+          {isOwnProfile && profile.profile_completion_percent < 100 && (() => {
+            const items: { label: string; done: boolean; editable: boolean }[] = [
+              { label: 'First name',     done: !!profile.first_name?.trim(),    editable: false },
+              { label: 'Last name',      done: !!profile.last_name?.trim(),     editable: false },
+              { label: 'Gender',         done: !!profile.gender,                editable: false },
+              { label: 'City',           done: !!profile.city?.trim(),          editable: true },
+              { label: 'Home area',      done: !!profile.primary_area?.trim(),  editable: true },
+              { label: 'Dominant hand',  done: !!profile.dominant_hand,         editable: true },
+            ];
+            const missing = items.filter(i => !i.done);
+            const hasEditable = missing.some(i => i.editable);
+            return (
+              <div className="border border-yellow-500/20 bg-yellow-500/5 px-4 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-yellow-400 text-[10px] tracking-widest uppercase" style={G}>
+                    Profile {profile.profile_completion_percent}% complete
+                  </p>
+                  {hasEditable && (
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="text-yellow-400 text-[10px] tracking-widest uppercase hover:text-yellow-300 transition-colors"
+                      style={G}
+                    >
+                      Fill in missing →
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {items.map(item => (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <span className={`text-[10px] w-3 ${item.done ? 'text-brand-green' : 'text-yellow-400/60'}`}>
+                        {item.done ? '✓' : '○'}
+                      </span>
+                      <span className={`text-xs ${item.done ? 'text-white/30 line-through' : 'text-white/60'}`} style={I}>
+                        {item.label}
+                      </span>
+                      {!item.done && !item.editable && (
+                        <span className="text-white/20 text-[9px]" style={I}>— set during sign-up</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
