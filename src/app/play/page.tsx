@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import BandejaLogo from '@/components/BandejaLogo';
@@ -8,6 +8,21 @@ import DiscoveryFeed from './DiscoveryFeed';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 const I = { fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' };
+
+type TeamRow = {
+  id: string;
+  name: string | null;
+  auto_name: string | null;
+  cached_current_team_rating: number | null;
+  status: string;
+  captain_player_id: string | null;
+};
+
+type ProfileWithTeams = {
+  id: string;
+  onboarding_completed: boolean;
+  team_members: { role: string; teams: TeamRow | null }[];
+};
 
 export default async function PlayPage({
   searchParams,
@@ -19,29 +34,21 @@ export default async function PlayPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
+  // Single DB round trip: profile + all team memberships + team details joined.
+  // Cast bypasses Supabase TS relationship validation (all tables have Relationships: []).
+  const rawQuery = supabase
     .from('player_profiles')
-    .select('id, onboarding_completed')
+    .select('id, onboarding_completed, team_members(role, teams(id, name, auto_name, cached_current_team_rating, status, captain_player_id))')
     .eq('user_id', user.id)
     .single();
-  if (!profile?.onboarding_completed) redirect('/onboarding');
 
-  // Get all active teams this player is on
-  const { data: memberRows } = await supabase
-    .from('team_members')
-    .select('team_id, role')
-    .eq('player_id', profile.id);
+  const { data: profileData } = await (rawQuery as unknown as Promise<{ data: ProfileWithTeams | null; error: unknown }>);
 
-  const teamIds = (memberRows ?? []).map((m) => m.team_id);
-  const { data: activeTeams } = teamIds.length > 0
-    ? await supabase
-        .from('teams')
-        .select('id, name, auto_name, cached_current_team_rating, status, captain_player_id')
-        .in('id', teamIds)
-        .eq('status', 'active')
-    : { data: [] };
+  if (!profileData?.onboarding_completed) redirect('/onboarding');
 
-  const teams = activeTeams ?? [];
+  const teams: TeamRow[] = (profileData.team_members ?? [])
+    .map((m) => m.teams)
+    .filter((t): t is TeamRow => t !== null && t.status === 'active');
 
   if (teams.length === 0) {
     return (
@@ -73,7 +80,6 @@ export default async function PlayPage({
     );
   }
 
-  // Determine selected team
   const selectedTeam = teams.find((t) => t.id === teamParam) ?? teams[0];
 
   return (
@@ -87,9 +93,9 @@ export default async function PlayPage({
       </header>
 
       <DiscoveryFeed
-        teams={teams as Array<{ id: string; name: string | null; auto_name: string | null; cached_current_team_rating: number | null; status: string; captain_player_id: string | null }>}
+        teams={teams}
         selectedTeamId={selectedTeam.id}
-        myPlayerId={profile.id}
+        myPlayerId={profileData.id}
       />
 
       <BottomNav />
