@@ -2,7 +2,7 @@
   "name": "BANDEJA Rivals",
   "short_name": "BANDEJA",
   "description": "Padel matchmaking — find rivals, form teams, climb the leaderboard.",
-  "start_url": "/",
+  "start_url": "/play",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
