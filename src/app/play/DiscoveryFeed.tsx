@@ -3,7 +3,15 @@
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getDiscoveryFeed, sendChallenge, type DiscoveryCandidate } from '@/app/actions/challenges';
-import ExploreFeed from './ExploreFeed';
+import dynamic from 'next/dynamic';
+const ExploreFeed = dynamic(() => import('./ExploreFeed'), {
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-white/30 text-sm" style={{ fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' }}>
+      Loading...
+    </div>
+  ),
+  ssr: false,
+});
 import {
   getOpenMatchFeed, applyToOpenMatch, cancelOpenMatchApplication,
   createOpenMatch, getMyOpenMatches, acceptOpenMatchApplication, cancelOpenMatch,
