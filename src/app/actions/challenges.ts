@@ -292,10 +292,9 @@ export interface DiscoveryCandidate {
   cached_recent_form: string | null;
   home_city: string | null;
   home_area: string | null;
-  // Expected score preview (computed client-side from my_team_rating)
   steps: number;
-  // Match label
   label: string;
+  players: { avatar_url: string | null; initials: string }[];
 }
 
 export async function getDiscoveryFeed(actor_team_id: string): Promise<{
@@ -378,17 +377,39 @@ export async function getDiscoveryFeed(actor_team_id: string): Promise<{
 
   if (error) return { candidates: [], myTeamRating, error: error.message };
 
-  // Get stats for candidates
+  // Stats + team members in parallel
   const candidateIds = (candidates ?? []).map((t) => t.id);
-  const { data: statsRows } = candidateIds.length > 0
-    ? await supabase
-        .from('team_stats')
-        .select('team_id, wins, losses, cached_recent_form')
-        .in('team_id', candidateIds)
-    : { data: [] };
+  const [{ data: statsRows }, { data: memberRows }] = await Promise.all([
+    candidateIds.length > 0
+      ? supabase.from('team_stats').select('team_id, wins, losses, cached_recent_form').in('team_id', candidateIds)
+      : Promise.resolve({ data: [] as Array<{ team_id: string; wins: number; losses: number; cached_recent_form: string | null }> }),
+    candidateIds.length > 0
+      ? supabase.from('team_members').select('team_id, player_id').in('team_id', candidateIds)
+      : Promise.resolve({ data: [] as Array<{ team_id: string; player_id: string }> }),
+  ]);
 
   const statsByTeam: Record<string, { wins: number; losses: number; cached_recent_form: string | null }> = {};
   for (const s of statsRows ?? []) statsByTeam[s.team_id] = s;
+
+  // Fetch avatar + name for each candidate player
+  const memberPlayerIds = [...new Set((memberRows ?? []).map((m) => m.player_id))];
+  const { data: playerProfileRows } = memberPlayerIds.length > 0
+    ? await supabase
+        .from('player_profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', memberPlayerIds)
+    : { data: [] as Array<{ id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }> };
+
+  const profileById: Record<string, { avatar_url: string | null; first_name: string | null; last_name: string | null }> = {};
+  for (const p of playerProfileRows ?? []) profileById[p.id] = p;
+
+  const playersByTeam: Record<string, { avatar_url: string | null; initials: string }[]> = {};
+  for (const m of memberRows ?? []) {
+    if (!playersByTeam[m.team_id]) playersByTeam[m.team_id] = [];
+    const prof = profileById[m.player_id];
+    const initials = [prof?.first_name?.[0], prof?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+    playersByTeam[m.team_id].push({ avatar_url: prof?.avatar_url ?? null, initials });
+  }
 
   const { ratingDifferenceToSteps, matchLabel } = await import('@/lib/bandeja-rating');
 
@@ -411,6 +432,7 @@ export async function getDiscoveryFeed(actor_team_id: string): Promise<{
       home_area: t.home_area,
       steps,
       label: matchLabel(steps, myTeamIsFavorite),
+      players: playersByTeam[t.id] ?? [],
     };
   });
 

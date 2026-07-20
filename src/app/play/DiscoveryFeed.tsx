@@ -510,17 +510,31 @@ function TeamCard({ candidate, myTeamRating, onPass, onChallenge }: {
   const labelColors = LABEL_COLORS[candidate.label] ?? 'text-white/40 border-white/20';
   return (
     <div className="border border-white/10 p-4 space-y-4">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-white text-sm tracking-wide uppercase" style={G}>{candidate.team_name}</h3>
-            <span className={`text-[9px] tracking-widest uppercase border px-2 py-0.5 ${labelColors}`} style={G}>{candidate.label}</span>
-          </div>
-          {(candidate.home_city || candidate.home_area) && (
-            <p className="text-white/30 text-xs mt-0.5" style={I}>{candidate.home_city}{candidate.home_area ? ` · ${candidate.home_area}` : ''}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+          {candidate.players.length > 0 && (
+            <div className="flex -space-x-2 shrink-0 mt-0.5">
+              {candidate.players.slice(0, 2).map((p, i) => (
+                <div key={i} className="w-7 h-7 rounded-full border-2 border-[#111] bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                  {p.avatar_url
+                    ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-white/50 text-[9px] font-bold">{p.initials}</span>}
+                </div>
+              ))}
+            </div>
           )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-white text-sm tracking-wide uppercase" style={G}>{candidate.team_name}</h3>
+              <span className={`text-[9px] tracking-widest uppercase border px-2 py-0.5 ${labelColors}`} style={G}>{candidate.label}</span>
+            </div>
+            <p className="text-white/25 text-[10px] mt-0.5" style={I}>
+              {candidate.public_team_id && <span className="mr-1.5">#{candidate.public_team_id}</span>}
+              {candidate.home_city}{candidate.home_area ? ` · ${candidate.home_area}` : ''}
+            </p>
+          </div>
         </div>
-        <div className="text-right shrink-0 ml-3">
+        <div className="text-right shrink-0">
           <div className="text-white text-xl font-bold leading-none" style={G}>{candidate.team_rating}</div>
           <div className="text-white/30 text-[9px] tracking-widest uppercase mt-0.5" style={G}>Rating</div>
         </div>
