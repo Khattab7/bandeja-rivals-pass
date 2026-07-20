@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     '@supabase/supabase-js',
     '@supabase/ssr',
-    'web-push',
     'sharp',
   ],
   async headers() {
