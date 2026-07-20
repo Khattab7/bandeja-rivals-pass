@@ -588,6 +588,56 @@ export async function adminGetAnnouncementStats(announcementId: string) {
   return { total, inAppRead, pushDelivered, pushTapped };
 }
 
+export async function adminTestPush(): Promise<{
+  vapidConfigured: boolean;
+  missingVars: string[];
+  subscriptionCount: number;
+  results: { endpoint: string; status: 'sent' | 'failed'; error?: string; statusCode?: number }[];
+}> {
+  const user = await assertAdmin();
+  const service = createServiceClient();
+
+  const contact = process.env.VAPID_CONTACT?.trim() ?? '';
+  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ?? '';
+  const priv = process.env.VAPID_PRIVATE_KEY?.trim() ?? '';
+
+  const missingVars: string[] = [];
+  if (!contact) missingVars.push('VAPID_CONTACT');
+  if (!pub) missingVars.push('NEXT_PUBLIC_VAPID_PUBLIC_KEY');
+  if (!priv) missingVars.push('VAPID_PRIVATE_KEY');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: subs } = await (service as any)
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .eq('user_id', user.id);
+
+  const subscriptionCount = (subs as unknown[])?.length ?? 0;
+
+  if (missingVars.length > 0 || subscriptionCount === 0) {
+    return { vapidConfigured: missingVars.length === 0, missingVars, subscriptionCount, results: [] };
+  }
+
+  const webpush = (await import('web-push')).default;
+  webpush.setVapidDetails(contact, pub, priv);
+
+  type Sub = { endpoint: string; p256dh: string; auth: string };
+  const results = await Promise.all((subs as Sub[]).map(async (sub) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify({ title: 'BANDEJA', body: 'Push test — working!', tag: 'push-test', url: '/admin' }),
+      );
+      return { endpoint: sub.endpoint.slice(-30), status: 'sent' as const };
+    } catch (err: unknown) {
+      const e = err as { message?: string; statusCode?: number };
+      return { endpoint: sub.endpoint.slice(-30), status: 'failed' as const, error: e.message, statusCode: e.statusCode };
+    }
+  }));
+
+  return { vapidConfigured: true, missingVars: [], subscriptionCount, results };
+}
+
 export async function adminGetAnnouncements() {
   await assertAdmin();
   const service = createServiceClient();

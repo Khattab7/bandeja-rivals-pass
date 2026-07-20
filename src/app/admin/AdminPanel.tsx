@@ -17,6 +17,7 @@ import {
   adminPreviewAnnouncement, adminSendAnnouncement, adminGetAnnouncements,
   adminGetAnnouncementStats,
   adminSearchPlayersForAnnouncement,
+  adminTestPush,
   type AnnouncementAudience,
 } from "@/app/actions/admin";
 import {
@@ -1457,6 +1458,8 @@ function AnnounceTab() {
   const [expandedStats, setExpandedStats] = useState<string | null>(null);
   const [statsCache, setStatsCache] = useState<Record<string, AnnounceStats>>({});
   const [loadingStats, setLoadingStats] = useState<string | null>(null);
+  const [pushDiag, setPushDiag] = useState<Awaited<ReturnType<typeof adminTestPush>> | null>(null);
+  const [testingPush, setTestingPush] = useState(false);
 
   useEffect(() => {
     startTransition(async () => {
@@ -1647,6 +1650,36 @@ function AnnounceTab() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Push diagnostics */}
+      <div>
+        <div className="flex items-center gap-3 mb-2">
+          <h2 className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Push Diagnostics</h2>
+          <button
+            onClick={async () => { setTestingPush(true); setPushDiag(null); const r = await adminTestPush(); setPushDiag(r); setTestingPush(false); }}
+            disabled={testingPush}
+            className="border border-white/20 text-white/50 px-3 py-1 text-[9px] tracking-widest uppercase hover:border-white/40 disabled:opacity-40 transition-colors"
+            style={G}
+          >
+            {testingPush ? '...' : 'Send Test Push to Me'}
+          </button>
+        </div>
+        {pushDiag && (
+          <div className="border border-white/10 p-4 space-y-2 text-[10px]" style={{ background: '#0d0d0d', fontFamily: 'monospace' }}>
+            <p style={{ color: pushDiag.vapidConfigured ? '#8CF702' : '#ef4444' }}>
+              VAPID: {pushDiag.vapidConfigured ? '✓ configured' : `✗ missing: ${pushDiag.missingVars.join(', ')}`}
+            </p>
+            <p style={{ color: pushDiag.subscriptionCount > 0 ? '#8CF702' : '#f97316' }}>
+              Subscriptions: {pushDiag.subscriptionCount} {pushDiag.subscriptionCount === 0 ? '— no devices subscribed for your account' : ''}
+            </p>
+            {pushDiag.results.map((r, i) => (
+              <p key={i} style={{ color: r.status === 'sent' ? '#8CF702' : '#ef4444' }}>
+                [{r.endpoint}] {r.status}{r.statusCode ? ` (${r.statusCode})` : ''}{r.error ? `: ${r.error}` : ''}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* History */}
