@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { updateProfile } from '@/app/actions/profile';
+import InstallPWAButton from '@/components/InstallPWAButton';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 const I = { fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' };
@@ -882,6 +883,13 @@ export default function ProfileClient({
               </Link>
             </div>
           </div>
+
+          {/* Add to Home Screen */}
+          <div className="space-y-1.5">
+            <p className="text-white/20 text-[9px] tracking-widest uppercase" style={G}>App</p>
+            <InstallPWAButton />
+          </div>
+
         </div>
       )}
     </main>
