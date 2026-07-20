@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { markNotificationRead, archiveNotification, deleteNotification } from './actions';
+
+const PWA_DISMISSED_KEY = 'pwa_install_dismissed';
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 const I = { fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' };
@@ -44,6 +51,13 @@ export default function NotificationInbox({ pinned, unread, read, actionsByNotif
   const [localRead, setLocalRead] = useState<Set<string>>(new Set());
   const [localArchived, setLocalArchived] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
+  const [showPwaCard, setShowPwaCard] = useState(false);
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isDismissed = localStorage.getItem(PWA_DISMISSED_KEY) === '1';
+    if (!isStandalone && !isDismissed) setShowPwaCard(true);
+  }, []);
 
   function handleMarkRead(id: string) {
     setLocalRead((prev) => new Set(prev).add(id));
@@ -59,7 +73,8 @@ export default function NotificationInbox({ pinned, unread, read, actionsByNotif
     });
   }
 
-  const allEmpty = pinned.length === 0 && unread.length === 0 && read.length === 0;
+  const hasRealNotifications = pinned.length > 0 || unread.length > 0 || read.length > 0;
+  const allEmpty = !showPwaCard && !hasRealNotifications;
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 space-y-8">
@@ -71,12 +86,25 @@ export default function NotificationInbox({ pinned, unread, read, actionsByNotif
         </div>
       )}
 
-      {/* ── Pinned / Action Required ──────────────────────────── */}
-      {pinned.filter((n) => !localArchived.has(n.id)).length > 0 && (
+      {/* ── PWA install card — always top ──────────────────────── */}
+      {showPwaCard && (
         <section>
           <h2 className="text-white/40 text-[10px] tracking-widest uppercase mb-3" style={G}>
             Action Required
           </h2>
+          <PWAInstallCard onDismiss={() => setShowPwaCard(false)} />
+        </section>
+      )}
+
+      {/* ── Pinned / Action Required ──────────────────────────── */}
+      {pinned.filter((n) => !localArchived.has(n.id)).length > 0 && (
+        <section>
+          {/* Only show header if PWA card didn't already render it */}
+          {!showPwaCard && (
+            <h2 className="text-white/40 text-[10px] tracking-widest uppercase mb-3" style={G}>
+              Action Required
+            </h2>
+          )}
           <div className="space-y-2">
             {pinned.filter((n) => !localArchived.has(n.id)).map((n) => (
               <NotificationCard
@@ -222,6 +250,127 @@ function NotificationCard({
               ) : null}
             </span>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PWAInstallCard({ onDismiss }: { onDismiss: () => void }) {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const ios = /iphone|ipad|ipod/i.test(ua) && !(window as unknown as Record<string, unknown>).MSStream;
+    setIsIOS(ios);
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  function dismiss() {
+    localStorage.setItem(PWA_DISMISSED_KEY, '1');
+    onDismiss();
+  }
+
+  async function handleInstall() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setAccepted(true);
+      localStorage.setItem(PWA_DISMISSED_KEY, '1');
+      onDismiss();
+    }
+  }
+
+  if (accepted) return null;
+
+  return (
+    <div className="border border-brand-green/25 bg-brand-green/3 p-4 space-y-3" style={{ background: 'rgba(140,247,2,0.03)' }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            {/* Green dot = unread */}
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#8CF702', display: 'inline-block', flexShrink: 0 }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-green shrink-0" />
+            <p className="text-white text-xs tracking-wider uppercase" style={G}>Install the App</p>
+          </div>
+          <p className="text-white/70 text-sm leading-snug" style={I}>
+            Add BANDEJA Rivals to your home screen for the best experience — faster load, full-screen, and offline access.
+          </p>
+        </div>
+        <button onClick={dismiss} className="text-white/20 hover:text-white/50 text-xs shrink-0" title="Dismiss">×</button>
+      </div>
+
+      {/* Android: show install button */}
+      {!isIOS && installPrompt && (
+        <button
+          onClick={handleInstall}
+          className="flex items-center gap-2 border border-brand-green/40 bg-brand-green/10 text-brand-green text-[10px] tracking-widest uppercase px-4 py-2.5 hover:bg-brand-green/15 transition-colors"
+          style={G}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Add to Home Screen
+        </button>
+      )}
+
+      {/* Android: prompt not ready yet (page just loaded) */}
+      {!isIOS && !installPrompt && (
+        <p className="text-white/30 text-xs" style={I}>
+          Open this page in Chrome and the install option will appear here.
+        </p>
+      )}
+
+      {/* iOS: toggle step-by-step guide */}
+      {isIOS && (
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowIOSGuide(v => !v)}
+            className="flex items-center gap-2 border border-white/20 text-white/50 text-[10px] tracking-widest uppercase px-4 py-2.5 hover:border-white/35 hover:text-white/70 transition-colors"
+            style={G}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            How to Add to Home Screen
+          </button>
+          {showIOSGuide && (
+            <div className="border border-white/10 px-4 py-3 space-y-2.5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              {[
+                'Tap the Share button (⬆) in the Safari toolbar at the bottom of your screen',
+                'Scroll down and tap "Add to Home Screen"',
+                'Tap "Add" in the top-right corner to confirm',
+              ].map((text, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="shrink-0 w-5 h-5 rounded-full border border-brand-green/40 flex items-center justify-center text-brand-green text-[9px] font-bold" style={G}>
+                    {i + 1}
+                  </span>
+                  <p className="text-white/50 text-xs leading-relaxed" style={I}>{text}</p>
+                </div>
+              ))}
+              <button
+                onClick={dismiss}
+                className="text-white/30 text-[10px] tracking-widest uppercase hover:text-white/50 transition-colors pt-1"
+                style={G}
+              >
+                I've added it — dismiss
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

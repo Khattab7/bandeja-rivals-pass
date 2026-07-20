@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { updateProfile } from '@/app/actions/profile';
@@ -110,6 +110,15 @@ export default function ProfileClient({
   const [localSide, setLocalSide] = useState(profile.preferred_side);
   const [localYears, setLocalYears] = useState(profile.years_playing_padel);
   const [localMatchPref, setLocalMatchPref] = useState(profile.match_type_preference);
+
+  // ─── PWA install state ──────────────────────────────────────────────────
+  const [isPwaInstalled, setIsPwaInstalled] = useState(true); // default true to avoid flash
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isDismissed = localStorage.getItem('pwa_install_dismissed') === '1';
+    setIsPwaInstalled(isStandalone || isDismissed);
+  }, []);
 
   // ─── Edit mode ──────────────────────────────────────────────────────────
   const [editing, setEditing] = useState(false);
@@ -697,22 +706,25 @@ export default function ProfileClient({
           )}
 
           {/* Profile completion checklist */}
-          {isOwnProfile && profile.profile_completion_percent < 100 && (() => {
-            const items: { label: string; done: boolean; editable: boolean }[] = [
-              { label: 'First name',     done: !!profile.first_name?.trim(),    editable: false },
-              { label: 'Last name',      done: !!profile.last_name?.trim(),     editable: false },
-              { label: 'Gender',         done: !!profile.gender,                editable: false },
+          {isOwnProfile && (profile.profile_completion_percent < 100 || !isPwaInstalled) && (() => {
+            const items: { label: string; done: boolean; editable: boolean; note?: string }[] = [
+              { label: 'First name',     done: !!profile.first_name?.trim(),    editable: false, note: 'set during sign-up' },
+              { label: 'Last name',      done: !!profile.last_name?.trim(),     editable: false, note: 'set during sign-up' },
+              { label: 'Gender',         done: !!profile.gender,                editable: false, note: 'set during sign-up' },
               { label: 'City',           done: !!profile.city?.trim(),          editable: true },
               { label: 'Home area',      done: !!profile.primary_area?.trim(),  editable: true },
               { label: 'Dominant hand',  done: !!profile.dominant_hand,         editable: true },
+              { label: 'Install the app', done: isPwaInstalled,                 editable: false, note: 'check your notifications' },
             ];
             const missing = items.filter(i => !i.done);
             const hasEditable = missing.some(i => i.editable);
+            const completedCount = items.filter(i => i.done).length;
+            const pct = Math.round((completedCount / items.length) * 100);
             return (
               <div className="border border-yellow-500/20 bg-yellow-500/5 px-4 py-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-yellow-400 text-[10px] tracking-widest uppercase" style={G}>
-                    Profile {profile.profile_completion_percent}% complete
+                    Profile {pct}% complete
                   </p>
                   {hasEditable && (
                     <button
@@ -733,8 +745,8 @@ export default function ProfileClient({
                       <span className={`text-xs ${item.done ? 'text-white/30 line-through' : 'text-white/60'}`} style={I}>
                         {item.label}
                       </span>
-                      {!item.done && !item.editable && (
-                        <span className="text-white/20 text-[9px]" style={I}>— set during sign-up</span>
+                      {!item.done && item.note && (
+                        <span className="text-white/20 text-[9px]" style={I}>— {item.note}</span>
                       )}
                     </div>
                   ))}

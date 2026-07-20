@@ -8,6 +8,7 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
+    // Count unread DB notifications
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
@@ -17,7 +18,14 @@ export default function NotificationBell() {
         .eq('recipient_user_id', user.id)
         .eq('is_read', false)
         .eq('is_deleted_by_user', false)
-        .then(({ count }) => setUnread(count ?? 0));
+        .then(({ count }) => {
+          let total = count ?? 0;
+          // Add 1 for the PWA install card if not yet installed/dismissed
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+          const isDismissed = localStorage.getItem('pwa_install_dismissed') === '1';
+          if (!isStandalone && !isDismissed) total += 1;
+          setUnread(total);
+        });
     });
   }, []);
 
