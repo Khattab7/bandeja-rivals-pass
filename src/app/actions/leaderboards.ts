@@ -130,6 +130,56 @@ export async function refreshLeaderboard(configId: string): Promise<{ success: b
 
   await service.from('leaderboard_configs').update({ last_refreshed_at: now.toISOString() }).eq('id', configId);
 
+  // Notify entities whose rank improved since the last refresh
+  try {
+    const improved = upsertRows.filter(
+      (r) => r.previous_rank !== null && r.rank < r.previous_rank
+    );
+    if (improved.length > 0) {
+      const { sendNotification, getTeamRecipients } = await import('@/lib/notifications');
+      if (config.entity_type === 'player') {
+        const playerIds = improved.map((r) => r.player_id).filter(Boolean) as string[];
+        const { data: profiles } = await service
+          .from('player_profiles')
+          .select('id, user_id')
+          .in('id', playerIds);
+        for (const p of profiles ?? []) {
+          const entry = improved.find((r) => r.player_id === p.id);
+          if (!entry) continue;
+          const moved = entry.previous_rank! - entry.rank;
+          await sendNotification({
+            type_key: 'leaderboard_rank_improved',
+            category: 'leaderboard',
+            priority: 'normal',
+            recipient_user_id: p.user_id,
+            recipient_player_id: p.id,
+            title: 'Leaderboard Rank Up',
+            body: `You moved up ${moved} spot${moved > 1 ? 's' : ''} to #${entry.rank} on the leaderboard.`,
+            related_entity_type: 'leaderboard_config',
+            related_entity_id: configId,
+          });
+        }
+      } else {
+        // Team leaderboard: notify all team members
+        const { sendNotificationToMany } = await import('@/lib/notifications');
+        for (const entry of improved) {
+          if (!entry.team_id) continue;
+          const moved = entry.previous_rank! - entry.rank;
+          const recipients = await getTeamRecipients(entry.team_id);
+          await sendNotificationToMany(recipients, {
+            type_key: 'leaderboard_rank_improved',
+            category: 'leaderboard',
+            priority: 'normal',
+            title: 'Leaderboard Rank Up',
+            body: `Your team moved up ${moved} spot${moved > 1 ? 's' : ''} to #${entry.rank} on the leaderboard.`,
+            related_entity_type: 'leaderboard_config',
+            related_entity_id: configId,
+          });
+        }
+      }
+    }
+  } catch (_) {}
+
   return { success: true, count: upsertRows.length };
 }
 

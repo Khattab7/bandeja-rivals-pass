@@ -162,6 +162,19 @@ export async function respondToChallenge(
       .from('team_challenges')
       .update({ status: 'rejected', responded_at: new Date().toISOString() })
       .eq('id', challenge_id);
+    // Notify challenging team: declined
+    try {
+      const challengingRecipients = await getTeamRecipients(challenge.challenging_team_id);
+      await sendNotificationToMany(challengingRecipients, {
+        type_key: 'challenge_declined',
+        category: 'challenge',
+        priority: 'normal',
+        title: 'Challenge Declined',
+        body: 'The team you challenged has declined your challenge.',
+        related_entity_type: 'challenge',
+        related_entity_id: challenge_id,
+      });
+    } catch (_) {}
     return {};
   }
 
@@ -245,6 +258,26 @@ export async function respondToChallenge(
       responded_at: new Date().toISOString(),
     })
     .eq('id', challenge_id);
+
+  // Notify challenging team: accepted + match created
+  try {
+    const challengingRecipients = await getTeamRecipients(challenge.challenging_team_id);
+    await sendNotificationToMany(challengingRecipients, {
+      type_key: 'challenge_accepted',
+      category: 'challenge',
+      priority: 'high',
+      title: 'Challenge Accepted!',
+      body: 'Your challenge was accepted. A match has been created.',
+      related_entity_type: 'match',
+      related_entity_id: match.id,
+      is_pinned: false,
+      actions: [{
+        action_key: 'view_match',
+        action_label: 'View Match',
+        action_url: `/matches/${match.id}`,
+      }],
+    });
+  } catch (_) {}
 
   return {};
 }
