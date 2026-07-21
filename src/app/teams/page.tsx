@@ -15,7 +15,8 @@ type TeamStats = Database['public']['Tables']['team_stats']['Row'];
 type TeamInvitation = Database['public']['Tables']['team_invitations']['Row'];
 type PlayerProfile = Database['public']['Tables']['player_profiles']['Row'];
 
-interface TeamWithStats extends TeamRow { team_stats: TeamStats | null; my_role: 'captain' | 'member'; }
+type PlayerAvatar = { player_id: string; avatar_url: string | null; initials: string };
+interface TeamWithStats extends TeamRow { team_stats: TeamStats | null; my_role: 'captain' | 'member'; players: PlayerAvatar[]; }
 interface InviteWithContext extends TeamInvitation {
   team: TeamRow | null;
   inviter: Pick<PlayerProfile, 'first_name' | 'last_name' | 'current_rating'> | null;
@@ -44,27 +45,43 @@ export default async function TeamsPage() {
   const roleByTeam: Record<string, 'captain' | 'member'> = {};
   for (const m of memberRows ?? []) roleByTeam[m.team_id] = m.role;
 
-  // Get teams
-  const { data: teamsData } = teamIds.length > 0
-    ? await supabase
-        .from('teams')
-        .select('*')
-        .in('id', teamIds)
-        .not('status', 'in', '("archived","deleted")')
-        .order('created_at', { ascending: false })
-    : { data: [] };
+  // Get teams + stats + all members in parallel
+  const [{ data: teamsData }, { data: statsData }, { data: allMemberRows }] = await Promise.all([
+    teamIds.length > 0
+      ? supabase.from('teams').select('*').in('id', teamIds).not('status', 'in', '("archived","deleted")').order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as TeamRow[] }),
+    teamIds.length > 0
+      ? supabase.from('team_stats').select('*').in('team_id', teamIds)
+      : Promise.resolve({ data: [] as TeamStats[] }),
+    teamIds.length > 0
+      ? supabase.from('team_members').select('team_id, player_id').in('team_id', teamIds)
+      : Promise.resolve({ data: [] as { team_id: string; player_id: string }[] }),
+  ]);
 
-  // Get team stats
-  const { data: statsData } = teamIds.length > 0
-    ? await supabase.from('team_stats').select('*').in('team_id', teamIds)
-    : { data: [] };
+  // Fetch player profiles for avatars
+  const allPlayerIds = [...new Set((allMemberRows ?? []).map(m => m.player_id))];
+  const { data: profileRows } = allPlayerIds.length > 0
+    ? await supabase.from('player_profiles').select('id, first_name, last_name, avatar_url').in('id', allPlayerIds)
+    : { data: [] as { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }[] };
+
+  const profileById = new Map((profileRows ?? []).map(p => [p.id, p]));
+
   const statsByTeam: Record<string, TeamStats> = {};
   for (const s of statsData ?? []) statsByTeam[s.team_id] = s;
+
+  const playersByTeam: Record<string, PlayerAvatar[]> = {};
+  for (const m of allMemberRows ?? []) {
+    if (!playersByTeam[m.team_id]) playersByTeam[m.team_id] = [];
+    const p = profileById.get(m.player_id);
+    const initials = [p?.first_name?.[0], p?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+    playersByTeam[m.team_id].push({ player_id: m.player_id, avatar_url: p?.avatar_url ?? null, initials });
+  }
 
   const teams: TeamWithStats[] = (teamsData ?? []).map((t) => ({
     ...t,
     team_stats: statsByTeam[t.id] ?? null,
     my_role: roleByTeam[t.id] ?? 'member',
+    players: playersByTeam[t.id] ?? [],
   }));
 
   // Get pending invitations for this player
@@ -157,18 +174,31 @@ function TeamCard({ team, profileId }: { team: TeamWithStats; profileId: string 
     <Link href={`/teams/${team.id}`}>
       <div className="border border-white/10 p-4 hover:border-white/20 transition-colors">
         <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-white text-sm tracking-wide uppercase truncate" style={G}>
-                {team.name || team.auto_name || 'Unnamed Team'}
-              </span>
-              {isCaptain && (
-                <span className="text-[9px] text-brand-green/70 tracking-widest uppercase border border-brand-green/30 px-1.5 py-0.5 shrink-0" style={G}>C</span>
-              )}
+          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+            {team.players.length > 0 && (
+              <div className="flex -space-x-2 shrink-0 mt-0.5">
+                {team.players.slice(0, 2).map((p, i) => (
+                  <div key={i} className="w-7 h-7 rounded-full border-2 border-[#111] bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                    {p.avatar_url
+                      ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-white/50 text-[9px] font-bold" style={G}>{p.initials}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-white text-sm tracking-wide uppercase truncate" style={G}>
+                  {team.name || team.auto_name || 'Unnamed Team'}
+                </span>
+                {isCaptain && (
+                  <span className="text-[9px] text-brand-green/70 tracking-widest uppercase border border-brand-green/30 px-1.5 py-0.5 shrink-0" style={G}>C</span>
+                )}
+              </div>
+              <p className="text-white/30 text-[10px] tracking-widest" style={G}>
+                {team.public_team_id}
+              </p>
             </div>
-            <p className="text-white/30 text-[10px] tracking-widest" style={G}>
-              {team.public_team_id}
-            </p>
           </div>
           <div className="text-right shrink-0 ml-3">
             <div className="text-brand-green text-lg font-bold leading-none" style={G}>
