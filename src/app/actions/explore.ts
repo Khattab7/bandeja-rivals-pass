@@ -36,6 +36,7 @@ export interface ExploreTileCard {
   title: string;
   subtitle: string | null;
   description: string | null;
+  cover_image_url: string | null;
   access_level: string;
   status: string;
   position_order: number;
@@ -313,6 +314,7 @@ export async function getExploreHome(teamId: string): Promise<{
         title: tile.title,
         subtitle: tile.subtitle,
         description: tile.description,
+        cover_image_url: tile.image_url ?? null,
         access_level: tile.access_level,
         status: tile.status,
         position_order: tile.position_order,
@@ -715,6 +717,7 @@ export async function adminListExploreTiles(): Promise<{
     max_challenges_per_team: number | null;
     background_color: string;
     description: string | null;
+    cover_image_url: string | null;
   }>;
   error?: string;
 }> {
@@ -770,6 +773,7 @@ export async function adminListExploreTiles(): Promise<{
         max_challenges_per_team: t.max_challenges_per_team,
         background_color: t.background_color ?? '#111111',
         description: t.description,
+        cover_image_url: t.image_url ?? null,
       })),
     };
   } catch (e) {
@@ -888,6 +892,7 @@ export async function adminUpdateExploreTile(
     max_visible_candidates?: number | null;
     max_challenges_per_team?: number | null;
     background_color?: string;
+    image_url?: string | null;
   },
 ): Promise<{ error?: string }> {
   try {

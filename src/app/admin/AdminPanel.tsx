@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { createClient } from "@/lib/supabase/client";
 import type { Member, ApprovedPhone } from "@/lib/types";
@@ -1907,6 +1907,7 @@ const TILE_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'li
 type TileRow = Awaited<ReturnType<typeof adminListExploreTiles>>["tiles"][0];
 
 function ExploreAdminTab() {
+  const supabase = createClient();
   const [isPending, startTransition] = useTransition();
   const [tiles, setTiles] = useState<TileRow[]>([]);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -1920,6 +1921,9 @@ function ExploreAdminTab() {
   const [newRuleMode, setNewRuleMode] = useState<"mandatory" | "notify_only">("mandatory");
   const [newRuleValue, setNewRuleValue] = useState("");
   const [ruleError, setRuleError] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   function loadTiles() {
     setTabError(null);
@@ -1984,6 +1988,21 @@ function ExploreAdminTab() {
       await adminDeleteExploreTileRule(ruleId, type);
       loadTiles();
     });
+  }
+
+  async function handleImageUpload(tileId: string, file: File) {
+    setImageError(null);
+    setImageUploading(tileId);
+    const ext = file.name.split('.').pop() ?? 'jpg';
+    const path = `tiles/${tileId}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('tile-covers')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) { setImageError('Upload failed: ' + uploadError.message); setImageUploading(null); return; }
+    const { data: { publicUrl } } = supabase.storage.from('tile-covers').getPublicUrl(path);
+    await adminUpdateExploreTile(tileId, { image_url: publicUrl });
+    setImageUploading(null);
+    loadTiles();
   }
 
   return (
@@ -2078,6 +2097,29 @@ function ExploreAdminTab() {
 
             {tile.id === selectedTileId && (
               <div className="border-t border-white/10 pt-3 space-y-4">
+
+                {/* Cover image */}
+                <div className="space-y-2">
+                  <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Cover Image</p>
+                  {tile.cover_image_url && (
+                    <div className="relative w-full h-28 overflow-hidden border border-white/10">
+                      <img src={tile.cover_image_url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => { startTransition(async () => { await adminUpdateExploreTile(tile.id, { image_url: null }); loadTiles(); }); }}
+                        className="absolute top-1.5 right-1.5 bg-black/70 text-white/60 text-[9px] px-2 py-1 hover:text-red-400 transition-colors"
+                        style={G}>Remove</button>
+                    </div>
+                  )}
+                  {imageError && <p className="text-red-400 text-[10px]" style={I}>{imageError}</p>}
+                  <button
+                    onClick={() => { imageInputRef.current?.click(); imageInputRef.current && (imageInputRef.current.dataset.tile = tile.id); }}
+                    disabled={imageUploading === tile.id}
+                    className="border border-white/20 text-white/50 px-3 py-1.5 text-[9px] tracking-widest uppercase hover:border-brand-green hover:text-brand-green disabled:opacity-40 transition-colors"
+                    style={G}>
+                    {imageUploading === tile.id ? 'Uploading...' : tile.cover_image_url ? 'Replace Image' : '+ Upload Image'}
+                  </button>
+                </div>
+
                 <div className="space-y-2">
                   <p className="text-white/40 text-[9px] tracking-widest uppercase" style={G}>Eligibility Rules</p>
                   {tile.eligibility_rules.length === 0 && <p className="text-white/20 text-xs" style={I}>None</p>}
@@ -2149,6 +2191,20 @@ function ExploreAdminTab() {
           </div>
         ))}
       </div>
+
+      {/* Hidden file input shared across all tiles */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const tileId = imageInputRef.current?.dataset.tile;
+          if (file && tileId) handleImageUpload(tileId, file);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }

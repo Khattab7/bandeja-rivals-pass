@@ -469,42 +469,53 @@ export default function ExploreFeed({
 function TileCard({ tile, onOpen }: { tile: ExploreTileCard; onOpen: () => void }) {
   const locked = tile.access_status !== 'available';
   const isAdminOnly = tile.access_status === 'admin_testing';
+  const hasImage = !!tile.cover_image_url;
 
   return (
     <button
       onClick={onOpen}
       disabled={locked}
-      className={`w-full text-left p-5 border relative transition-all ${locked ? 'opacity-60 cursor-default' : 'hover:border-brand-green/40 active:scale-[0.99]'}`}
+      className={`w-full text-left border relative overflow-hidden transition-all ${locked ? 'opacity-60 cursor-default' : 'hover:border-brand-green/40 active:scale-[0.99]'}`}
       style={{ background: locked ? '#0a0a0a' : tile.background_color ?? '#0d1a00', border: `1px solid ${locked ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.12)'}` }}
     >
-      {tile.is_featured && !locked && (
-        <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-brand-green/10 text-brand-green border border-brand-green/20" style={G}>Featured</span>
+      {/* Cover image */}
+      {hasImage && (
+        <div className="relative w-full h-40">
+          <img src={tile.cover_image_url!} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 100%)' }} />
+        </div>
       )}
-      {tile.is_sponsored && tile.sponsored_label && (
-        <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-white/5 text-white/30 border border-white/10" style={G}>{tile.sponsored_label}</span>
-      )}
-      {isAdminOnly && (
-        <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-purple-900/20 text-purple-400 border border-purple-400/20" style={G}>Admin Only</span>
-      )}
-      <div className="space-y-1.5">
-        <h3 className="text-white text-base tracking-widest uppercase" style={G}>{tile.title}</h3>
-        {tile.subtitle && <p className="text-white/50 text-xs" style={I}>{tile.subtitle}</p>}
-        {tile.description && <p className="text-white/30 text-xs leading-relaxed" style={I}>{tile.description}</p>}
+
+      <div className={hasImage ? 'p-4 pt-3' : 'p-5'}>
+        {tile.is_featured && !locked && (
+          <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-brand-green/10 text-brand-green border border-brand-green/20" style={G}>Featured</span>
+        )}
+        {tile.is_sponsored && tile.sponsored_label && (
+          <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-white/5 text-white/30 border border-white/10" style={G}>{tile.sponsored_label}</span>
+        )}
+        {isAdminOnly && (
+          <span className="absolute top-3 right-3 text-[8px] tracking-widest uppercase px-2 py-0.5 bg-purple-900/20 text-purple-400 border border-purple-400/20" style={G}>Admin Only</span>
+        )}
+        <div className="space-y-1.5">
+          <h3 className="text-white text-base tracking-widest uppercase" style={G}>{tile.title}</h3>
+          {tile.subtitle && <p className="text-white/50 text-xs" style={I}>{tile.subtitle}</p>}
+          {!hasImage && tile.description && <p className="text-white/30 text-xs leading-relaxed" style={I}>{tile.description}</p>}
+        </div>
+        {locked && tile.locked_reason && (
+          <div className="mt-3 flex items-center gap-2">
+            {tile.access_status === 'locked_paid' && (
+              <span className="text-[9px] tracking-widest uppercase px-2 py-1 bg-yellow-400/10 text-yellow-400 border border-yellow-400/20" style={G}>RIVAL</span>
+            )}
+            <p className="text-white/30 text-[10px]" style={I}>{tile.locked_reason}</p>
+          </div>
+        )}
+        {!locked && (
+          <div className="mt-3 flex items-center gap-2">
+            <TileMetaBadges tile={tile} />
+            <span className="ml-auto text-brand-green text-[10px] tracking-widest uppercase" style={G}>Enter →</span>
+          </div>
+        )}
       </div>
-      {locked && tile.locked_reason && (
-        <div className="mt-3 flex items-center gap-2">
-          {tile.access_status === 'locked_paid' && (
-            <span className="text-[9px] tracking-widest uppercase px-2 py-1 bg-yellow-400/10 text-yellow-400 border border-yellow-400/20" style={G}>RIVAL</span>
-          )}
-          <p className="text-white/30 text-[10px]" style={I}>{tile.locked_reason}</p>
-        </div>
-      )}
-      {!locked && (
-        <div className="mt-3 flex items-center gap-2">
-          <TileMetaBadges tile={tile} />
-          <span className="ml-auto text-brand-green text-[10px] tracking-widest uppercase" style={G}>Enter →</span>
-        </div>
-      )}
     </button>
   );
 }
@@ -513,23 +524,32 @@ function TileCard({ tile, onOpen }: { tile: ExploreTileCard; onOpen: () => void 
 
 function SmallTileCard({ tile, onOpen }: { tile: ExploreTileCard; onOpen: () => void }) {
   const locked = tile.access_status !== 'available';
+  const hasImage = !!tile.cover_image_url;
   return (
     <button
       onClick={onOpen}
       disabled={locked}
-      className={`w-full text-left p-4 border min-h-[100px] flex flex-col justify-between relative transition-all ${locked ? 'opacity-50 cursor-default' : 'hover:border-brand-green/40 active:scale-[0.98]'}`}
-      style={{ background: locked ? '#0a0a0a' : tile.background_color ?? '#0d1a00', border: `1px solid ${locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.10)'}` }}
+      className={`w-full text-left border relative overflow-hidden transition-all ${locked ? 'opacity-50 cursor-default' : 'hover:border-brand-green/40 active:scale-[0.98]'}`}
+      style={{ background: locked ? '#0a0a0a' : tile.background_color ?? '#0d1a00', border: `1px solid ${locked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.10)'}`, minHeight: '100px' }}
     >
-      <div>
-        <h3 className="text-white text-xs tracking-widest uppercase leading-tight" style={G}>{tile.title}</h3>
-        {tile.subtitle && <p className="text-white/30 text-[10px] mt-1 leading-tight" style={I}>{tile.subtitle}</p>}
+      {hasImage && (
+        <div className="relative w-full h-20">
+          <img src={tile.cover_image_url!} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 20%, rgba(0,0,0,0.8) 100%)' }} />
+        </div>
+      )}
+      <div className="p-3 flex flex-col gap-2">
+        <div>
+          <h3 className="text-white text-xs tracking-widest uppercase leading-tight" style={G}>{tile.title}</h3>
+          {tile.subtitle && <p className="text-white/30 text-[10px] mt-1 leading-tight" style={I}>{tile.subtitle}</p>}
+        </div>
+        {locked && tile.access_status === 'locked_paid' && (
+          <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 self-start" style={G}>RIVAL</span>
+        )}
+        {!locked && (
+          <span className="text-brand-green text-[9px] tracking-widest uppercase self-start" style={G}>→</span>
+        )}
       </div>
-      {locked && tile.access_status === 'locked_paid' && (
-        <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 self-start" style={G}>RIVAL</span>
-      )}
-      {!locked && (
-        <span className="text-brand-green text-[9px] tracking-widest uppercase self-start mt-2" style={G}>→</span>
-      )}
     </button>
   );
 }
