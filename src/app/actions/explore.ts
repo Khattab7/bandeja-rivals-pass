@@ -72,6 +72,7 @@ export interface ExploreCandidate {
   label: string;
   is_ready: boolean;
   ranking_score: number;
+  players: { avatar_url: string | null; initials: string }[];
 }
 
 // ── Helper: get current player + verify team membership ───────
@@ -504,7 +505,7 @@ export async function getExploreCandidates(
     const statsByTeam = new Map((statsRows ?? []).map(s => [s.team_id, s]));
 
     // Score and rank candidates
-    const scored: ExploreCandidate[] = candidates.map(t => {
+    const scored: Omit<ExploreCandidate, 'players'>[] = candidates.map(t => {
       const theirRating = t.cached_current_team_rating ?? 500;
       const diff = myRating - theirRating;
       const steps = ratingDifferenceToSteps(diff);
@@ -556,7 +557,28 @@ export async function getExploreCandidates(
     scored.sort((a, b) => b.ranking_score - a.ranking_score);
 
     const limit = maxCandidates ?? 50;
-    return { candidates: scored.slice(0, limit) };
+    const topCandIds = scored.slice(0, limit).map(c => c.team_id);
+
+    // Fetch player avatars for the ranked candidates
+    const { data: memberRows } = topCandIds.length > 0
+      ? await supabase.from('team_members').select('team_id, player_id').in('team_id', topCandIds)
+      : { data: [] as { team_id: string; player_id: string }[] };
+    const memberPlayerIds = [...new Set((memberRows ?? []).map(m => m.player_id))];
+    const { data: profileRows } = memberPlayerIds.length > 0
+      ? await supabase.from('player_profiles').select('id, first_name, last_name, avatar_url').in('id', memberPlayerIds)
+      : { data: [] as { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }[] };
+    const profileById = new Map((profileRows ?? []).map(p => [p.id, p]));
+    const playersByTeam = new Map<string, { avatar_url: string | null; initials: string }[]>();
+    for (const m of memberRows ?? []) {
+      if (!playersByTeam.has(m.team_id)) playersByTeam.set(m.team_id, []);
+      const p = profileById.get(m.player_id);
+      const initials = [p?.first_name?.[0], p?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+      playersByTeam.get(m.team_id)!.push({ avatar_url: p?.avatar_url ?? null, initials });
+    }
+
+    return {
+      candidates: scored.slice(0, limit).map(c => ({ ...c, players: playersByTeam.get(c.team_id) ?? [] })),
+    };
   } catch (e) {
     return { candidates: [], error: (e as Error).message };
   }

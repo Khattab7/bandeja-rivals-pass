@@ -109,10 +109,9 @@ export function expectedScorePreview(
 
   const iExpected = favoredSide === myTeamSide;
   if (iExpected) {
-    return `Expected to win ${scenario.label}`;
+    return `Expected to beat them ${scenario.label}`;
   } else {
-    // Reverse the score
-    return `Expected to lose ${scenario.loserGames}-${scenario.winnerGames}`;
+    return `Expected to beat you ${scenario.winnerGames}-${scenario.loserGames}`;
   }
 }
 
