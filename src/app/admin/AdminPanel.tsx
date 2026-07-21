@@ -18,6 +18,8 @@ import {
   adminGetAnnouncementStats,
   adminSearchPlayersForAnnouncement,
   adminTestPush,
+  adminListAdmins,
+  adminSetAdminRole,
   type AnnouncementAudience,
 } from "@/app/actions/admin";
 import {
@@ -40,7 +42,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 }
 
-type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator" | "explore";
+type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator" | "explore" | "admins";
 
 export default function AdminPanel({
   members: initial,
@@ -73,6 +75,7 @@ export default function AdminPanel({
     { key: "bars", label: "Bars" },
     { key: "quests", label: "Quests" },
     { key: "announce", label: "Announce" },
+    { key: "admins", label: "Admins" },
     { key: "simulator", label: "Simulator" },
     { key: "explore", label: "Explore" },
   ];
@@ -184,6 +187,7 @@ export default function AdminPanel({
         {activeTab === "bars" && <BarsTab />}
         {activeTab === "quests" && <QuestsTab />}
         {activeTab === "announce" && <AnnounceTab />}
+        {activeTab === "admins" && <AdminsTab />}
         {activeTab === "simulator" && <SimulatorTab />}
         {activeTab === "explore" && <ExploreAdminTab />}
       </main>
@@ -1415,6 +1419,144 @@ function SimulatorTab() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ── Admins Tab ────────────────────────────────────────────────
+
+type AdminUser = { user_id: string; player_id: string | null; email: string; name: string };
+
+function AdminsTab() {
+  const [isPending, startTransition] = useTransition();
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<PlayerRow[]>([]);
+
+  useEffect(() => { load(); }, []);
+
+  function load() {
+    startTransition(async () => {
+      const res = await adminListAdmins();
+      if ('error' in res && res.error) setError(res.error);
+      else setAdmins(res.admins as AdminUser[]);
+    });
+  }
+
+  function handleSearch() {
+    if (!search.trim()) return;
+    startTransition(async () => {
+      const res = await adminGetPlayers(search);
+      if (!res.error) setSearchResults(res.players as PlayerRow[]);
+    });
+  }
+
+  function handleGrant(playerId: string) {
+    startTransition(async () => {
+      const res = await adminSetAdminRole(playerId, true);
+      if (!res.success) { setError(res.error ?? 'Failed'); return; }
+      setSuccess('Admin access granted'); setSearchResults([]); setSearch('');
+      load(); setTimeout(() => setSuccess(null), 3000);
+    });
+  }
+
+  function handleRevoke(playerId: string | null, name: string) {
+    if (!playerId) return;
+    if (!confirm(`Revoke admin access for ${name}?`)) return;
+    startTransition(async () => {
+      const res = await adminSetAdminRole(playerId, false);
+      if (!res.success) { setError(res.error ?? 'Failed'); return; }
+      setSuccess('Admin access revoked');
+      load(); setTimeout(() => setSuccess(null), 3000);
+    });
+  }
+
+  return (
+    <div className="space-y-8 max-w-2xl">
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {success && <p className="text-brand-green text-xs">✓ {success}</p>}
+
+      {/* Current admins */}
+      <section>
+        <h3 className="text-white/30 text-[9px] tracking-widest uppercase mb-3" style={G}>Current Admins</h3>
+        {isPending && admins.length === 0 && <p className="text-white/30 text-sm text-center py-4" style={I}>Loading...</p>}
+        <div className="space-y-2">
+          {admins.length === 0 && !isPending && (
+            <p className="text-white/20 text-center py-4 text-sm" style={I}>No admins found</p>
+          )}
+          {admins.map((a) => (
+            <div key={a.user_id} className="border border-white/10 p-4 flex items-center justify-between gap-4" style={{ background: '#111' }}>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-bold truncate" style={G}>{a.name.toUpperCase()}</p>
+                <p className="text-white/40 text-[9px] mt-0.5 truncate">{a.email}</p>
+              </div>
+              {a.player_id ? (
+                <button
+                  onClick={() => handleRevoke(a.player_id, a.name)}
+                  disabled={isPending}
+                  className="shrink-0 border border-red-500/30 text-red-400/70 px-3 py-1.5 text-[9px] tracking-widest uppercase hover:border-red-400 hover:text-red-400 disabled:opacity-40 transition-colors"
+                  style={G}
+                >
+                  Revoke
+                </button>
+              ) : (
+                <span className="text-white/20 text-[9px]" style={G}>No profile</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Grant admin */}
+      <section>
+        <h3 className="text-white/30 text-[9px] tracking-widest uppercase mb-3" style={G}>Grant Admin Access</h3>
+        <div className="flex gap-2 mb-4">
+          <input
+            placeholder="Search player by name or username..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="flex-1 bg-transparent border border-white/20 text-white placeholder-white/30 px-4 py-2.5 text-sm outline-none focus:border-brand-green transition-colors"
+            style={G}
+          />
+          <button
+            onClick={handleSearch}
+            disabled={isPending || !search.trim()}
+            className="border border-brand-green text-brand-green px-4 py-2.5 text-[10px] tracking-widest uppercase hover:bg-brand-green/10 disabled:opacity-40 transition-colors"
+            style={G}
+          >
+            {isPending ? '...' : 'Search'}
+          </button>
+        </div>
+        <div className="space-y-2">
+          {searchResults.map((p) => {
+            const name = (p.display_name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()) || p.username || 'Player';
+            const alreadyAdmin = admins.some((a) => a.player_id === p.id);
+            return (
+              <div key={p.id} className="border border-white/10 p-3 flex items-center justify-between gap-3" style={{ background: '#0d0d0d' }}>
+                <div className="min-w-0">
+                  <p className="text-white text-sm font-bold" style={G}>{name.toUpperCase()}</p>
+                  {p.username && <p className="text-white/30 text-[9px] mt-0.5" style={I}>@{p.username}</p>}
+                </div>
+                {alreadyAdmin ? (
+                  <span className="text-brand-green text-[9px] tracking-widest uppercase shrink-0" style={G}>Already Admin</span>
+                ) : (
+                  <button
+                    onClick={() => handleGrant(p.id)}
+                    disabled={isPending}
+                    className="shrink-0 border border-brand-green text-brand-green px-3 py-1.5 text-[9px] tracking-widest uppercase hover:bg-brand-green/10 disabled:opacity-40 transition-colors"
+                    style={G}
+                  >
+                    Grant Admin
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>
