@@ -215,7 +215,7 @@ export async function acceptInvitation(invitation_id: string): Promise<AcceptInv
       .select('id')
       .single();
     if (notif) {
-      await service.from('notification_actions').update({ status: 'dismissed' }).eq('notification_id', notif.id);
+      await service.from('notification_actions').update({ status: 'unavailable' }).eq('notification_id', notif.id);
     }
   } catch (_) {}
 
@@ -323,7 +323,7 @@ export async function rejectInvitation(invitation_id: string): Promise<{ error?:
       .select('id')
       .single();
     if (notif) {
-      await service.from('notification_actions').update({ status: 'dismissed' }).eq('notification_id', notif.id);
+      await service.from('notification_actions').update({ status: 'unavailable' }).eq('notification_id', notif.id);
     }
   } catch (_) {}
 
