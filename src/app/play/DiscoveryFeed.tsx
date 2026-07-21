@@ -380,7 +380,7 @@ export default function DiscoveryFeed({
                 <span className="text-white/40 ml-2">· {challengeForm.candidate.team_rating}</span>
               </p>
               <p className="text-white/30 text-xs mt-1" style={I}>
-                {expectedScorePreview(challengeForm.candidate.steps, challengeForm.candidate.steps === 0 ? null : (myTeamRating > challengeForm.candidate.team_rating ? 'A' : 'B'), myTeamRating > challengeForm.candidate.team_rating ? 'A' : 'B')}
+                {expectedScorePreview(challengeForm.candidate.steps, challengeForm.candidate.steps === 0 ? null : myTeamRating > challengeForm.candidate.team_rating)}
               </p>
             </div>
             <div className="space-y-2">
@@ -505,8 +505,8 @@ export default function DiscoveryFeed({
 function TeamCard({ candidate, myTeamRating, onPass, onChallenge }: {
   candidate: DiscoveryCandidate; myTeamRating: number; onPass: () => void; onChallenge: () => void;
 }) {
-  const myTeamIsFavorite: 'A' | 'B' | null = candidate.steps === 0 ? null : (myTeamRating > candidate.team_rating ? 'A' : 'B');
-  const scorePreview = expectedScorePreview(candidate.steps, myTeamIsFavorite, myTeamIsFavorite ?? 'A');
+  const iAmFavored = candidate.steps === 0 ? null : myTeamRating > candidate.team_rating;
+  const scorePreview = expectedScorePreview(candidate.steps, iAmFavored);
   const labelColors = LABEL_COLORS[candidate.label] ?? 'text-white/40 border-white/20';
   return (
     <div className="border border-white/10 p-4 space-y-4">

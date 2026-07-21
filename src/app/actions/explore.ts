@@ -559,13 +559,14 @@ export async function getExploreCandidates(
     const limit = maxCandidates ?? 50;
     const topCandIds = scored.slice(0, limit).map(c => c.team_id);
 
-    // Fetch player avatars for the ranked candidates
+    // Fetch player avatars for the ranked candidates (service client bypasses RLS for cross-team reads)
+    const service = createServiceClient();
     const { data: memberRows } = topCandIds.length > 0
-      ? await supabase.from('team_members').select('team_id, player_id').in('team_id', topCandIds)
+      ? await service.from('team_members').select('team_id, player_id').in('team_id', topCandIds)
       : { data: [] as { team_id: string; player_id: string }[] };
     const memberPlayerIds = [...new Set((memberRows ?? []).map(m => m.player_id))];
     const { data: profileRows } = memberPlayerIds.length > 0
-      ? await supabase.from('player_profiles').select('id, first_name, last_name, avatar_url').in('id', memberPlayerIds)
+      ? await service.from('player_profiles').select('id, first_name, last_name, avatar_url').in('id', memberPlayerIds)
       : { data: [] as { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }[] };
     const profileById = new Map((profileRows ?? []).map(p => [p.id, p]));
     const playersByTeam = new Map<string, { avatar_url: string | null; initials: string }[]>();

@@ -95,20 +95,16 @@ export function matchLabel(steps: number, myTeamIsFavorite: boolean | null): str
   }
 }
 
-// For preview cards: expected score shown to the user with "my team" perspective
-export function expectedScorePreview(
-  steps: number,
-  favoredSide: 'A' | 'B' | null,
-  myTeamSide: 'A' | 'B'
-): string {
-  if (steps === 0 || favoredSide === null) return 'Even match';
+// For preview cards: expected score shown to the user with "my team" perspective.
+// iAmFavored = true → my team is the higher-rated side, false → opponent is favored.
+export function expectedScorePreview(steps: number, iAmFavored: boolean | null): string {
+  if (steps === 0 || iAmFavored === null) return 'Even match';
 
   const capSteps = Math.min(steps, 6);
   const scenarioIndex = STEPS_TO_SCENARIO_FOR_FAVORITE[capSteps] ?? 1;
   const scenario = SCENARIOS.find((s) => s.index === scenarioIndex)!;
 
-  const iExpected = favoredSide === myTeamSide;
-  if (iExpected) {
+  if (iAmFavored) {
     return `Expected to beat them ${scenario.label}`;
   } else {
     return `Expected to beat you ${scenario.winnerGames}-${scenario.loserGames}`;

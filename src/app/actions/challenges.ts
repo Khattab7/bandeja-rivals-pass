@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendNotificationToMany, getTeamRecipients } from '@/lib/notifications';
 
@@ -377,14 +377,15 @@ export async function getDiscoveryFeed(actor_team_id: string): Promise<{
 
   if (error) return { candidates: [], myTeamRating, error: error.message };
 
-  // Stats + team members in parallel
+  // Stats + team members in parallel (service client bypasses RLS for cross-team reads)
   const candidateIds = (candidates ?? []).map((t) => t.id);
+  const service = createServiceClient();
   const [{ data: statsRows }, { data: memberRows }] = await Promise.all([
     candidateIds.length > 0
       ? supabase.from('team_stats').select('team_id, wins, losses, cached_recent_form').in('team_id', candidateIds)
       : Promise.resolve({ data: [] as Array<{ team_id: string; wins: number; losses: number; cached_recent_form: string | null }> }),
     candidateIds.length > 0
-      ? supabase.from('team_members').select('team_id, player_id').in('team_id', candidateIds)
+      ? service.from('team_members').select('team_id, player_id').in('team_id', candidateIds)
       : Promise.resolve({ data: [] as Array<{ team_id: string; player_id: string }> }),
   ]);
 
@@ -394,7 +395,7 @@ export async function getDiscoveryFeed(actor_team_id: string): Promise<{
   // Fetch avatar + name for each candidate player
   const memberPlayerIds = [...new Set((memberRows ?? []).map((m) => m.player_id))];
   const { data: playerProfileRows } = memberPlayerIds.length > 0
-    ? await supabase
+    ? await service
         .from('player_profiles')
         .select('id, first_name, last_name, avatar_url')
         .in('id', memberPlayerIds)
