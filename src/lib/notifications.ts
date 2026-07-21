@@ -9,6 +9,22 @@
 import webpush from 'web-push';
 import { createServiceClient } from '@/lib/supabase/server';
 
+// Maps entity types to the correct in-app URL for push notification taps.
+// The old auto-pluralisation formula (`/${type}s/${id}`) only worked for
+// 'match' and 'team'; everything else (challenge, open_match, quest_instance,
+// leaderboard_config) produced 404s.
+function resolvePushUrl(entityType: string | null, entityId: string | null): string {
+  switch (entityType) {
+    case 'match':       return entityId ? `/matches/${entityId}` : '/matches';
+    case 'team':        return entityId ? `/teams/${entityId}` : '/teams';
+    case 'challenge':   return '/matches';
+    case 'open_match':  return '/matches';
+    case 'quest_instance': return '/quests';
+    case 'leaderboard_config': return '/leaderboards';
+    default:            return '/notifications';
+  }
+}
+
 let vapidInitialised = false;
 function initVapid() {
   if (vapidInitialised) return;
@@ -136,14 +152,13 @@ export async function sendNotification(payload: NotificationPayload): Promise<st
     .eq('user_id', payload.recipient_user_id);
 
   if (pushSubs?.length) {
+    const pushUrl = resolvePushUrl(payload.related_entity_type ?? null, payload.related_entity_id ?? null);
     const pushPayload = JSON.stringify({
       notification_id: notif.id,
       title: payload.title ?? 'BANDEJA',
       body: payload.body,
       tag: payload.type_key,
-      url: (payload.related_entity_type && payload.related_entity_type !== 'admin_announcement')
-        ? `/${payload.related_entity_type}s/${payload.related_entity_id ?? ''}`
-        : '/notifications',
+      url: pushUrl,
     });
 
     initVapid();
