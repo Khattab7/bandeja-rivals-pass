@@ -204,26 +204,22 @@ export async function respondToChallenge(
 
   if (matchErr) return { error: matchErr.message };
 
-  // Lock players into match_players
-  const { data: teamAMembers } = await supabase
-    .from('team_members')
-    .select('player_id')
-    .eq('team_id', challenge.challenging_team_id);
-
-  const { data: teamBMembers } = await supabase
-    .from('team_members')
-    .select('player_id')
-    .eq('team_id', challenge.challenged_team_id);
+  // Lock players into match_players — use service client for cross-team reads
+  // (auth client only sees team_members for teams the user belongs to)
+  const service = createServiceClient();
+  const [{ data: teamAMembers }, { data: teamBMembers }] = await Promise.all([
+    service.from('team_members').select('player_id').eq('team_id', challenge.challenging_team_id),
+    service.from('team_members').select('player_id').eq('team_id', challenge.challenged_team_id),
+  ]);
 
   // Get ratings for all 4 players
   const allPlayerIds = [
     ...(teamAMembers ?? []).map((m) => m.player_id),
     ...(teamBMembers ?? []).map((m) => m.player_id),
   ];
-  const { data: playerRatings } = await supabase
-    .from('player_profiles')
-    .select('id, current_rating')
-    .in('id', allPlayerIds);
+  const { data: playerRatings } = allPlayerIds.length > 0
+    ? await service.from('player_profiles').select('id, current_rating').in('id', allPlayerIds)
+    : { data: [] as { id: string; current_rating: number }[] };
 
   const ratingById: Record<string, number> = {};
   for (const p of playerRatings ?? []) ratingById[p.id] = p.current_rating;

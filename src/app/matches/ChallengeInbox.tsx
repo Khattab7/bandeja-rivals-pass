@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { respondToChallenge } from '@/app/actions/challenges';
 
@@ -34,11 +34,17 @@ export default function ChallengeInbox({ challenges }: { challenges: InboxChalle
 export function ChallengeCard({ challenge, readOnly = false }: { challenge: InboxChallenge; readOnly?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   function respond(response: 'accepted' | 'rejected') {
+    setErr(null);
     startTransition(async () => {
-      await respondToChallenge(challenge.id, response);
-      router.refresh();
+      const result = await respondToChallenge(challenge.id, response);
+      if (result?.error) {
+        setErr(result.error);
+      } else {
+        router.refresh();
+      }
     });
   }
 
@@ -96,6 +102,10 @@ export function ChallengeCard({ challenge, readOnly = false }: { challenge: Inbo
         <p className="text-white/50 text-xs italic border-l-2 border-white/10 pl-3" style={I}>
           &ldquo;{challenge.message}&rdquo;
         </p>
+      )}
+
+      {err && (
+        <p className="text-red-400 text-xs" style={I}>{err}</p>
       )}
 
       {!readOnly && (
