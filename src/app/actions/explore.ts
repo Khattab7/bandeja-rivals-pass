@@ -894,7 +894,8 @@ export async function adminGetTileUploadUrl(
       .createSignedUploadUrl(path, { upsert: true });
     if (error) return { error: error.message };
     const { data: { publicUrl } } = service.storage.from('tile-covers').getPublicUrl(path);
-    return { signedUrl: data.signedUrl, token: data.token, path, publicUrl };
+    const bustUrl = `${publicUrl}?v=${Date.now()}`;
+    return { signedUrl: data.signedUrl, token: data.token, path, publicUrl: bustUrl };
   } catch (e) {
     return { error: (e as Error).message };
   }
