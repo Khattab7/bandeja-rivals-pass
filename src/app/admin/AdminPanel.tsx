@@ -24,7 +24,8 @@ import {
 } from "@/app/actions/admin";
 import {
   adminListExploreTiles, adminCreateExploreTile, adminUpdateExploreTile,
-  adminDeleteExploreTileRule, adminAddExploreTileRule, adminUploadTileImage,
+  adminDeleteExploreTileRule, adminAddExploreTileRule,
+  adminGetTileUploadUrl, adminSaveTileImageUrl,
   type ExploreTileCard, type CreateExploreTileInput,
 } from "@/app/actions/explore";
 import {
@@ -1992,10 +1993,30 @@ function ExploreAdminTab() {
   async function handleImageUpload(tileId: string, file: File) {
     setImageError(null);
     setImageUploading(tileId);
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await adminUploadTileImage(tileId, fd);
-    if (res.error) { setImageError('Upload failed: ' + res.error); setImageUploading(null); return; }
+    const ext = file.name.split('.').pop() ?? 'jpg';
+
+    // Step 1: get a signed upload URL from the server (tiny roundtrip, no file data)
+    const urlRes = await adminGetTileUploadUrl(tileId, ext);
+    if (urlRes.error || !urlRes.signedUrl) {
+      setImageError('Upload failed: ' + (urlRes.error ?? 'no signed URL'));
+      setImageUploading(null); return;
+    }
+
+    // Step 2: upload file directly from browser to Supabase storage
+    const uploadRes = await fetch(urlRes.signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    });
+    if (!uploadRes.ok) {
+      setImageError('Upload failed: ' + uploadRes.statusText);
+      setImageUploading(null); return;
+    }
+
+    // Step 3: save the public URL to the tile record
+    const saveRes = await adminSaveTileImageUrl(tileId, urlRes.publicUrl!);
+    if (saveRes.error) { setImageError('Save failed: ' + saveRes.error); setImageUploading(null); return; }
+
     setImageUploading(null);
     loadTiles();
   }

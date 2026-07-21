@@ -878,37 +878,44 @@ export async function adminCreateExploreTile(
   }
 }
 
-// ── Admin: upload tile cover image ───────────────────────────
+// ── Admin: get signed upload URL for tile cover image ─────────
+// Browser uploads directly to Supabase — file never passes through Vercel.
 
-export async function adminUploadTileImage(
+export async function adminGetTileUploadUrl(
   tileId: string,
-  formData: FormData,
-): Promise<{ url?: string; error?: string }> {
+  ext: string,
+): Promise<{ signedUrl?: string; token?: string; path?: string; publicUrl?: string; error?: string }> {
   try {
     await assertAdmin();
     const service = createServiceClient();
-    const file = formData.get('file') as File | null;
-    if (!file) return { error: 'No file provided' };
-
-    const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `tiles/${tileId}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const { error: uploadError } = await service.storage
+    const { data, error } = await service.storage
       .from('tile-covers')
-      .upload(path, buffer, { upsert: true, contentType: file.type });
-    if (uploadError) return { error: uploadError.message };
-
+      .createSignedUploadUrl(path, { upsert: true });
+    if (error) return { error: error.message };
     const { data: { publicUrl } } = service.storage.from('tile-covers').getPublicUrl(path);
+    return { signedUrl: data.signedUrl, token: data.token, path, publicUrl };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
 
-    const { error: updateError } = await service
+// ── Admin: save tile cover image URL after direct upload ───────
+
+export async function adminSaveTileImageUrl(
+  tileId: string,
+  publicUrl: string,
+): Promise<{ error?: string }> {
+  try {
+    await assertAdmin();
+    const service = createServiceClient();
+    const { error } = await service
       .from('explore_tiles')
       .update({ image_url: publicUrl, updated_at: new Date().toISOString() })
       .eq('id', tileId);
-    if (updateError) return { error: updateError.message };
-
+    if (error) return { error: error.message };
     revalidatePath('/play');
-    return { url: publicUrl };
+    return {};
   } catch (e) {
     return { error: (e as Error).message };
   }
