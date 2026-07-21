@@ -2,6 +2,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { ratingDifferenceToSteps, matchLabel } from '@/lib/bandeja-rating';
 import crypto from 'crypto';
 
@@ -906,6 +907,7 @@ export async function adminUploadTileImage(
       .eq('id', tileId);
     if (updateError) return { error: updateError.message };
 
+    revalidatePath('/play');
     return { url: publicUrl };
   } catch (e) {
     return { error: (e as Error).message };

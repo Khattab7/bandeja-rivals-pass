@@ -2158,9 +2158,24 @@ function ExploreAdminTab() {
                     <select className="flex-1 bg-[#111] border border-white/20 text-white text-xs px-2 py-1.5 outline-none" style={I}
                       value={newRuleKey}
                       onChange={(e) => setNewRuleKey(e.target.value)}>
-                      {(addRuleType === "eligibility" ? ELIGIBILITY_KEYS : RANKING_KEYS).map((k) => (
-                        <option key={k} value={k}>{k}</option>
-                      ))}
+                      {addRuleType === "eligibility" ? (
+                        <>
+                          <optgroup label="── Entry gate (viewer's team)">
+                            <option value="my_rating_min">my_rating_min — viewer rating ≥ value</option>
+                            <option value="my_rating_max">my_rating_max — viewer rating ≤ value</option>
+                            <option value="gender_rule">gender_rule</option>
+                            <option value="match_history">match_history</option>
+                            <option value="ready_tonight">ready_tonight</option>
+                            <option value="paid_membership">paid_membership</option>
+                          </optgroup>
+                          <optgroup label="── Candidate filter (opponent teams)">
+                            <option value="rating_min">rating_min — opponents rated ≥ value</option>
+                            <option value="rating_max">rating_max — opponents rated ≤ value</option>
+                          </optgroup>
+                        </>
+                      ) : (
+                        RANKING_KEYS.map((k) => <option key={k} value={k}>{k}</option>)
+                      )}
                     </select>
                     {addRuleType === "eligibility" && (
                       <select className="bg-[#111] border border-white/20 text-white text-xs px-2 py-1.5 outline-none" style={I}
