@@ -24,7 +24,7 @@ import {
 } from "@/app/actions/admin";
 import {
   adminListExploreTiles, adminCreateExploreTile, adminUpdateExploreTile,
-  adminDeleteExploreTileRule, adminAddExploreTileRule,
+  adminDeleteExploreTileRule, adminAddExploreTileRule, adminUploadTileImage,
   type ExploreTileCard, type CreateExploreTileInput,
 } from "@/app/actions/explore";
 import {
@@ -1907,7 +1907,6 @@ const TILE_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'li
 type TileRow = Awaited<ReturnType<typeof adminListExploreTiles>>["tiles"][0];
 
 function ExploreAdminTab() {
-  const supabase = createClient();
   const [isPending, startTransition] = useTransition();
   const [tiles, setTiles] = useState<TileRow[]>([]);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -1993,14 +1992,10 @@ function ExploreAdminTab() {
   async function handleImageUpload(tileId: string, file: File) {
     setImageError(null);
     setImageUploading(tileId);
-    const ext = file.name.split('.').pop() ?? 'jpg';
-    const path = `tiles/${tileId}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from('tile-covers')
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (uploadError) { setImageError('Upload failed: ' + uploadError.message); setImageUploading(null); return; }
-    const { data: { publicUrl } } = supabase.storage.from('tile-covers').getPublicUrl(path);
-    await adminUpdateExploreTile(tileId, { image_url: publicUrl });
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await adminUploadTileImage(tileId, fd);
+    if (res.error) { setImageError('Upload failed: ' + res.error); setImageUploading(null); return; }
     setImageUploading(null);
     loadTiles();
   }

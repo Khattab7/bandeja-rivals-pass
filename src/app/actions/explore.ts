@@ -877,6 +877,41 @@ export async function adminCreateExploreTile(
   }
 }
 
+// ── Admin: upload tile cover image ───────────────────────────
+
+export async function adminUploadTileImage(
+  tileId: string,
+  formData: FormData,
+): Promise<{ url?: string; error?: string }> {
+  try {
+    await assertAdmin();
+    const service = createServiceClient();
+    const file = formData.get('file') as File | null;
+    if (!file) return { error: 'No file provided' };
+
+    const ext = file.name.split('.').pop() ?? 'jpg';
+    const path = `tiles/${tileId}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const { error: uploadError } = await service.storage
+      .from('tile-covers')
+      .upload(path, buffer, { upsert: true, contentType: file.type });
+    if (uploadError) return { error: uploadError.message };
+
+    const { data: { publicUrl } } = service.storage.from('tile-covers').getPublicUrl(path);
+
+    const { error: updateError } = await service
+      .from('explore_tiles')
+      .update({ image_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', tileId);
+    if (updateError) return { error: updateError.message };
+
+    return { url: publicUrl };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 // ── Admin: update tile status / fields ────────────────────────
 
 export async function adminUpdateExploreTile(
