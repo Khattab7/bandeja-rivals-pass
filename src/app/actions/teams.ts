@@ -203,6 +203,22 @@ export async function acceptInvitation(invitation_id: string): Promise<AcceptInv
     .eq('id', invitation_id);
   if (updateErr) console.error('Failed to mark invitation accepted:', updateErr.message);
 
+  // Dismiss the invite notification so action buttons disappear
+  try {
+    const { data: notif } = await service
+      .from('notifications')
+      .update({ action_state: 'actioned', is_pinned: false, is_read: true, read_at: new Date().toISOString() })
+      .eq('recipient_user_id', user.id)
+      .eq('type_key', 'team_invite_received')
+      .eq('related_entity_id', invite.team_id)
+      .eq('action_state', 'pending_action')
+      .select('id')
+      .single();
+    if (notif) {
+      await service.from('notification_actions').update({ status: 'dismissed' }).eq('notification_id', notif.id);
+    }
+  } catch (_) {}
+
   // Notify captain: partner accepted
   try {
     const { data: teamInfo } = await supabase
@@ -277,14 +293,40 @@ export async function rejectInvitation(invitation_id: string): Promise<{ error?:
     .single();
   if (!profile) return { error: 'Player profile not found.' };
 
-  const { error } = await supabase
+  const { data: invite } = await supabase
     .from('team_invitations')
-    .update({ status: 'rejected', responded_at: new Date().toISOString() })
+    .select('id, team_id')
     .eq('id', invitation_id)
     .eq('invitee_player_id', profile.id)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .single();
+
+  if (!invite) return { error: 'Invitation not found or already responded.' };
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from('team_invitations')
+    .update({ status: 'rejected', responded_at: new Date().toISOString() })
+    .eq('id', invitation_id);
 
   if (error) return { error: error.message };
+
+  // Dismiss the invite notification so action buttons disappear
+  try {
+    const { data: notif } = await service
+      .from('notifications')
+      .update({ action_state: 'actioned', is_pinned: false, is_read: true, read_at: new Date().toISOString() })
+      .eq('recipient_user_id', user.id)
+      .eq('type_key', 'team_invite_received')
+      .eq('related_entity_id', invite.team_id)
+      .eq('action_state', 'pending_action')
+      .select('id')
+      .single();
+    if (notif) {
+      await service.from('notification_actions').update({ status: 'dismissed' }).eq('notification_id', notif.id);
+    }
+  } catch (_) {}
+
   return {};
 }
 
