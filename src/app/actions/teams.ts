@@ -194,10 +194,14 @@ export async function acceptInvitation(invitation_id: string): Promise<AcceptInv
 
   if (memberErr) return { error: memberErr.message };
 
-  await supabase
+  // Use service client to guarantee the invitation row is marked accepted
+  // (avoids silent RLS no-op when the invitee's session has edge-case timing)
+  const service = createServiceClient();
+  const { error: updateErr } = await service
     .from('team_invitations')
     .update({ status: 'accepted', responded_at: new Date().toISOString() })
     .eq('id', invitation_id);
+  if (updateErr) console.error('Failed to mark invitation accepted:', updateErr.message);
 
   // Notify captain: partner accepted
   try {

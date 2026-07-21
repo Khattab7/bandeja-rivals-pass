@@ -10,6 +10,7 @@ export type PlayerContext = {
   wins: number;
   currentStreak: number;
   isMember: boolean;
+  teams: { name: string; rating: number; partnerName: string; publicId: string | null }[];
 };
 
 export function buildSystemPrompt(
@@ -19,6 +20,14 @@ export function buildSystemPrompt(
 ): string {
   const partners = partnerBenefits ?? PARTNER_BENEFITS;
   const platform = platformBenefits ?? PLATFORM_BENEFITS;
+  const teamsSection = player && player.teams.length > 0
+    ? `\nMY TEAMS:\n${player.teams.map(t =>
+        `- ${t.name}${t.publicId ? ` (${t.publicId})` : ''} · Team Rating: ${t.rating} · Partner: ${t.partnerName}`
+      ).join('\n')}`
+    : player
+    ? '\nMY TEAMS: None yet — not part of any active team.'
+    : '';
+
   const playerSection = player
     ? `
 CURRENT PLAYER:
@@ -28,7 +37,7 @@ CURRENT PLAYER:
 - Rivals Pass: ${player.isMember ? 'Active ✓' : 'Inactive'}
 - Active Bars balance: ${player.barsBalance}${player.lockedBars > 0 ? ` (${player.lockedBars} locked — Rivals Pass needed)` : ''}
 - Matches played: ${player.matchesPlayed} total, ${player.wins} wins
-- Current winning streak: ${player.currentStreak}`
+- Current winning streak: ${player.currentStreak}${teamsSection}`
     : '';
 
   return `You are BANDEJA AI — the intelligent assistant built into the BANDEJA padel matchmaking platform.

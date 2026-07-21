@@ -115,6 +115,28 @@ export async function POST(req: Request) {
         .single()
     : { data: null };
 
+  // Fetch active teams for AI context
+  const { data: memberRows } = profile
+    ? await supabase.from('team_members').select('team_id').eq('player_id', profile.id)
+    : { data: null };
+  const teamIds = (memberRows ?? []).map(m => m.team_id);
+  const { data: teamsRaw } = teamIds.length > 0
+    ? await supabase
+        .from('teams')
+        .select('id, name, auto_name, public_team_id, cached_current_team_rating')
+        .in('id', teamIds)
+        .eq('status', 'active')
+    : { data: [] };
+  const { data: allTeamMembers } = teamIds.length > 0
+    ? await supabase.from('team_members').select('team_id, player_id').in('team_id', teamIds).neq('player_id', profile?.id ?? '')
+    : { data: [] };
+  const partnerIds = [...new Set((allTeamMembers ?? []).map(m => m.player_id))];
+  const { data: partnerProfiles } = partnerIds.length > 0
+    ? await supabase.from('player_profiles').select('id, first_name, last_name, display_name').in('id', partnerIds)
+    : { data: [] };
+  const partnerById = new Map((partnerProfiles ?? []).map(p => [p.id, p]));
+  const partnerByTeam = new Map((allTeamMembers ?? []).map(m => [m.team_id, m.player_id]));
+
   const partnerBenefits: PartnerBenefit[] = Array.isArray(partnerSetting?.value) ? partnerSetting.value as PartnerBenefit[] : PARTNER_BENEFITS;
   const platformBenefits: string[] = Array.isArray(platformSetting?.value) ? platformSetting.value as string[] : PLATFORM_BENEFITS;
 
@@ -129,6 +151,19 @@ export async function POST(req: Request) {
         wins: stats?.wins ?? 0,
         currentStreak: stats?.current_winning_streak ?? 0,
         isMember: !!(member?.is_active && member?.valid_until && new Date(member.valid_until) > new Date()),
+        teams: (teamsRaw ?? []).map(t => {
+          const partnerId = partnerByTeam.get(t.id);
+          const partner = partnerId ? partnerById.get(partnerId) : null;
+          const partnerName = partner
+            ? (partner.display_name ?? `${partner.first_name ?? ''} ${partner.last_name ?? ''}`.trim()) || 'Partner'
+            : 'Unknown';
+          return {
+            name: t.name ?? t.auto_name ?? 'Unnamed Team',
+            rating: t.cached_current_team_rating ?? 500,
+            partnerName,
+            publicId: t.public_team_id ?? null,
+          };
+        }),
       }
     : undefined;
 
