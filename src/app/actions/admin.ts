@@ -638,6 +638,53 @@ export async function adminTestPush(): Promise<{
   return { vapidConfigured: true, missingVars: [], subscriptionCount, results };
 }
 
+// ── Admin role management ─────────────────────────────────────
+
+export async function adminListAdmins() {
+  await assertAdmin();
+  const service = createServiceClient();
+
+  const { data, error } = await service.auth.admin.listUsers({ perPage: 1000 });
+  if (error) return { admins: [] as { user_id: string; player_id: string | null; email: string; name: string }[], error: error.message };
+
+  const adminUsers = (data.users ?? []).filter(
+    (u) => (u.app_metadata as { role?: string })?.role === 'admin'
+  );
+  if (!adminUsers.length) return { admins: [] };
+
+  const { data: profiles } = await service
+    .from('player_profiles')
+    .select('id, user_id, first_name, last_name, display_name, username')
+    .in('user_id', adminUsers.map((u) => u.id));
+
+  return {
+    admins: adminUsers.map((u) => {
+      const p = (profiles ?? []).find((pr) => pr.user_id === u.id);
+      const fullName = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim();
+      const name = (p?.display_name ?? fullName) || p?.username || u.email || u.id;
+      return { user_id: u.id, player_id: p?.id ?? null, email: u.email ?? '', name };
+    }),
+  };
+}
+
+export async function adminSetAdminRole(playerId: string, grant: boolean) {
+  await assertAdmin();
+  const service = createServiceClient();
+
+  const { data: profile } = await service
+    .from('player_profiles')
+    .select('user_id')
+    .eq('id', playerId)
+    .single();
+  if (!profile) return { success: false, error: 'Player not found' };
+
+  const { error } = await service.auth.admin.updateUserById(profile.user_id, {
+    app_metadata: { role: grant ? 'admin' : null },
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function adminGetAnnouncements() {
   await assertAdmin();
   const service = createServiceClient();
