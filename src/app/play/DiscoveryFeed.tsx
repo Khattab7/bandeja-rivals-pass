@@ -367,8 +367,8 @@ export default function DiscoveryFeed({
 
       {/* ── Challenge modal ───────────────────────────────── */}
       {challengeForm && (
-        <div className="fixed inset-0 bg-black/85 flex items-end justify-center z-50 p-4">
-          <div className="bg-[#0a0a0a] border border-white/20 w-full max-w-sm rounded-t-xl space-y-4 p-5 pb-8">
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0a0a0a] border border-white/20 w-full max-w-sm space-y-4 p-5 pb-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-white text-sm tracking-widest uppercase" style={G}>Challenge</h2>
               <button onClick={() => setChallengeForm(null)} className="text-white/30 text-sm hover:text-white/60">✕</button>
