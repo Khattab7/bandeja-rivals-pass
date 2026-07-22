@@ -190,7 +190,6 @@ export default function ExploreFeed({
   }
 
   function handleReadyTonight() {
-    if (!isCaptain) return;
     setReadyError(null);
     setReadyLoading(true);
     startTransition(async () => {
