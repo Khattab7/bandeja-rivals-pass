@@ -14,6 +14,13 @@ export default function PWARegister() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
+    // Reload when a new SW takes over (skipWaiting + clients.claim).
+    // Only do this if a SW was already controlling the page on load —
+    // avoids a spurious reload on the very first install.
+    const hadController = !!navigator.serviceWorker.controller;
+    const onControllerChange = () => { if (hadController) window.location.reload(); };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
     navigator.serviceWorker
       .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then(async (reg) => {
@@ -31,6 +38,10 @@ export default function PWARegister() {
         });
       })
       .catch(() => { /* SW registration errors are non-fatal */ });
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    };
   }, []);
 
   return null;
