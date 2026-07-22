@@ -108,9 +108,11 @@ export default async function MatchesPage() {
   const teamById = new Map((teamRows ?? []).map((t: TeamRow) => [t.id, t]));
 
   // Avatars via service client (bypasses RLS for cross-team reads)
+  // Include challenge teams AND opponent teams from matches so all cards have avatars.
   const avatarTeamIds = [...new Set([
     ...(incomingChallenges ?? []).map((c: ChallengeRow) => c.challenging_team_id),
     ...(outgoingChallenges ?? []).map((c: ChallengeRow) => c.challenged_team_id),
+    ...(matches ?? []).flatMap((m: MatchRow) => [m.team_a_id, m.team_b_id]),
   ])];
   const avatarsByTeam = await fetchTeamAvatars(service, avatarTeamIds);
 
@@ -171,6 +173,7 @@ export default async function MatchesPage() {
       my_side: slot?.side ?? 'A',
       my_team_id: slot?.team_id ?? '',
       score_sub: sub,
+      players: avatarsByTeam.get(opponentTeamId) ?? [],
     };
   });
 

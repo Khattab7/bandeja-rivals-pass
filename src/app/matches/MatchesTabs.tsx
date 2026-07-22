@@ -32,6 +32,7 @@ interface MatchedItem {
   my_side: string;
   my_team_id: string;
   score_sub: ScoreSub;
+  players: { avatar_url: string | null; initials: string }[];
 }
 
 interface Props {
@@ -225,6 +226,21 @@ function MatchCard({
       className={`block border ${borderCls} p-4 transition-colors`}
     >
       <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          {m.players.length > 0 && (
+            <div className="flex -space-x-2 shrink-0">
+              {m.players.slice(0, 2).map((p, i) => (
+                <div
+                  key={i}
+                  className="w-8 h-8 rounded-full border-2 border-[#111] bg-white/10 overflow-hidden flex items-center justify-center shrink-0"
+                >
+                  {p.avatar_url
+                    ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-white/60 text-[10px] font-bold" style={G}>{p.initials}</span>}
+                </div>
+              ))}
+            </div>
+          )}
         <div className="min-w-0">
           {showResult ? (
             <p className={`text-[10px] tracking-widest uppercase font-bold mb-0.5 ${myWon ? 'text-brand-green' : 'text-red-400'}`} style={G}>
@@ -280,6 +296,7 @@ function MatchCard({
           {!showResult && m.status === 'alternative_score_submitted' && (
             <p className="text-white/30 text-xs mt-0.5" style={I}>Scores disputed — check details</p>
           )}
+        </div>
         </div>
         <span className={`text-sm shrink-0 ml-2 ${highlight === 'yellow' ? 'text-yellow-400' : 'text-white/40'}`}>→</span>
       </div>
