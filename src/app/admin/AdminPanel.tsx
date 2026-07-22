@@ -29,6 +29,9 @@ import {
   type ExploreTileCard, type CreateExploreTileInput,
 } from "@/app/actions/explore";
 import {
+  adminGetLeaderboardConfigs, adminRefreshAllLeaderboards, manualRefreshLeaderboard,
+} from "@/app/actions/leaderboards";
+import {
   SCENARIOS,
   calculateExpectedScore,
   calculateRatingChange,
@@ -43,7 +46,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
 }
 
-type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator" | "explore" | "admins";
+type AdminTab = "members" | "phones" | "players" | "matches" | "settings" | "bars" | "quests" | "announce" | "simulator" | "explore" | "admins" | "leaderboards";
 
 export default function AdminPanel({
   members: initial,
@@ -79,6 +82,7 @@ export default function AdminPanel({
     { key: "admins", label: "Admins" },
     { key: "simulator", label: "Simulator" },
     { key: "explore", label: "Explore" },
+    { key: "leaderboards", label: "Leaderboards" },
   ];
 
   async function toggleActive(member: Member) {
@@ -191,6 +195,7 @@ export default function AdminPanel({
         {activeTab === "admins" && <AdminsTab />}
         {activeTab === "simulator" && <SimulatorTab />}
         {activeTab === "explore" && <ExploreAdminTab />}
+        {activeTab === "leaderboards" && <LeaderboardsTab />}
       </main>
     </div>
   );
@@ -2236,6 +2241,149 @@ function ExploreAdminTab() {
           e.target.value = '';
         }}
       />
+    </div>
+  );
+}
+
+// ── Leaderboards Tab ──────────────────────────────────────────
+
+type LeaderboardConfigRow = {
+  id: string;
+  name: string;
+  slug: string;
+  entity_type: string;
+  metric_key: string;
+  time_window: string;
+  is_active: boolean;
+  is_frozen: boolean;
+  last_refreshed_at: string | null;
+  entry_count: number;
+};
+
+function LeaderboardsTab() {
+  const [isPending, startTransition] = useTransition();
+  const [configs, setConfigs] = useState<LeaderboardConfigRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function load() {
+    startTransition(async () => {
+      const res = await adminGetLeaderboardConfigs();
+      if (res.error) setError(res.error);
+      else setConfigs(res.configs);
+    });
+  }
+
+  function handleRefreshAll() {
+    setError(null); setSuccess(null);
+    startTransition(async () => {
+      const res = await adminRefreshAllLeaderboards();
+      if (res.errors.length > 0) setError(res.errors.join(' · '));
+      else setSuccess(`All leaderboards refreshed — ${res.refreshed} updated.`);
+      load();
+    });
+  }
+
+  function handleRefreshOne(id: string, name: string) {
+    setError(null); setSuccess(null); setRefreshingId(id);
+    startTransition(async () => {
+      const res = await manualRefreshLeaderboard(id);
+      setRefreshingId(null);
+      if (!res.success) setError(`${name}: ${res.error}`);
+      else setSuccess(`"${name}" refreshed — ${res.count ?? 0} entries.`);
+      load();
+    });
+  }
+
+  const timeWindowLabel: Record<string, string> = {
+    today: 'Today', weekly: 'Weekly', monthly: 'Monthly',
+    season: 'Season', all_time: 'All Time',
+  };
+
+  return (
+    <div className="space-y-6">
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {success && <p className="text-brand-green text-xs">✓ {success}</p>}
+
+      {/* Refresh all */}
+      <div className="border border-white/10 p-5 space-y-3" style={{ background: '#111' }}>
+        <div>
+          <p className="text-white text-sm tracking-widest uppercase font-bold" style={G}>Refresh All Leaderboards</p>
+          <p className="text-white/30 text-[10px] mt-1" style={I}>
+            Rebuilds every active, non-frozen leaderboard and updates ranks. The cron job runs daily at 03:00 UTC — use this to force an immediate update.
+          </p>
+        </div>
+        <button
+          onClick={handleRefreshAll}
+          disabled={isPending}
+          className="border border-brand-green text-brand-green px-5 py-2.5 text-[10px] tracking-widest uppercase hover:bg-brand-green/10 disabled:opacity-40 transition-colors"
+          style={G}
+        >
+          {isPending && !refreshingId ? 'Refreshing...' : 'Refresh All →'}
+        </button>
+      </div>
+
+      {/* Per-leaderboard list */}
+      <section>
+        <h3 className="text-white/30 text-[9px] tracking-widest uppercase mb-3" style={G}>
+          Individual Leaderboards ({configs.length})
+        </h3>
+        {isPending && configs.length === 0 && (
+          <p className="text-white/30 text-center py-8 text-sm" style={I}>Loading...</p>
+        )}
+        <div className="space-y-2">
+          {configs.map((c) => (
+            <div key={c.id} className="border border-white/10 p-4" style={{ background: '#0d0d0d' }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 border"
+                      style={{ color: c.entity_type === 'player' ? '#8CF702' : '#60a5fa', borderColor: c.entity_type === 'player' ? '#8CF70240' : '#60a5fa40' }}>
+                      {c.entity_type}
+                    </span>
+                    <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 border border-white/10 text-white/30" style={G}>
+                      {timeWindowLabel[c.time_window] ?? c.time_window}
+                    </span>
+                    {c.is_frozen && (
+                      <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 border border-yellow-500/40 text-yellow-400" style={G}>
+                        Frozen
+                      </span>
+                    )}
+                    {!c.is_active && (
+                      <span className="text-[8px] tracking-widest uppercase px-1.5 py-0.5 border border-white/10 text-white/20" style={G}>
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-white text-sm font-bold" style={G}>{c.name}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-white/30 text-[9px]" style={I}>{c.entry_count} entries</span>
+                    <span className="text-white/20 text-[9px]" style={I}>
+                      {c.last_refreshed_at
+                        ? `Last: ${new Date(c.last_refreshed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                        : 'Never refreshed'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRefreshOne(c.id, c.name)}
+                  disabled={isPending || c.is_frozen || !c.is_active}
+                  className="border border-white/20 text-white/50 px-3 py-1.5 text-[9px] tracking-widest uppercase hover:border-brand-green hover:text-brand-green disabled:opacity-25 transition-colors shrink-0"
+                  style={G}
+                  title={c.is_frozen ? 'Frozen — cannot refresh' : !c.is_active ? 'Inactive' : 'Refresh this leaderboard'}
+                >
+                  {refreshingId === c.id ? '...' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

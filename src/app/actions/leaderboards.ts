@@ -221,6 +221,55 @@ export async function manualRefreshLeaderboard(configId: string) {
   return result;
 }
 
+export async function adminRefreshAllLeaderboards() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { refreshed: 0, errors: ['Unauthenticated'] };
+  const meta = user.app_metadata as { role?: string } | null;
+  if (meta?.role !== 'admin') return { refreshed: 0, errors: ['Not admin'] };
+  return refreshAllLeaderboards();
+}
+
+export async function adminGetLeaderboardConfigs(): Promise<{
+  configs: Array<{ id: string; name: string; slug: string; entity_type: string; metric_key: string; time_window: string; is_active: boolean; is_frozen: boolean; last_refreshed_at: string | null; entry_count: number }>;
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { configs: [], error: 'Unauthenticated' };
+  const meta = user.app_metadata as { role?: string } | null;
+  if (meta?.role !== 'admin') return { configs: [], error: 'Not admin' };
+
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from('leaderboard_configs')
+    .select('id, name, slug, entity_type, metric_key, time_window, is_active, is_frozen, last_refreshed_at')
+    .order('display_order');
+
+  if (error) return { configs: [], error: error.message };
+
+  // Count entries per config
+  const configIds = (data ?? []).map((c) => c.id);
+  const { data: entryCounts } = configIds.length > 0
+    ? await service
+        .from('leaderboard_entries')
+        .select('config_id')
+        .in('config_id', configIds)
+    : { data: [] };
+
+  const countByConfig: Record<string, number> = {};
+  for (const e of entryCounts ?? []) {
+    countByConfig[e.config_id] = (countByConfig[e.config_id] ?? 0) + 1;
+  }
+
+  return {
+    configs: (data ?? []).map((c) => ({
+      ...c,
+      entry_count: countByConfig[c.id] ?? 0,
+    })),
+  };
+}
+
 // ── Build player entries ──────────────────────────────────────
 
 async function buildPlayerEntries(
