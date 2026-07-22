@@ -74,7 +74,6 @@ export default function ExploreFeed({
   const [readyError, setReadyError] = useState<string | null>(null);
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId)!;
-  const isCaptain = selectedTeam?.captain_player_id === myPlayerId;
 
   // Load home tiles
   const loadHome = useCallback(() => {
@@ -238,8 +237,8 @@ export default function ExploreFeed({
       {view === 'home' && (
         <div className="flex-1 px-4 py-4 max-w-lg mx-auto w-full">
 
-          {/* Ready Tonight banner */}
-          {isCaptain && (
+          {/* Ready Tonight banner — visible to all team members, not just captains */}
+          {selectedTeam && (
             <div className={`mb-4 p-3 border transition-colors ${isReadyTonight ? 'border-brand-green/40 bg-brand-green/5' : 'border-white/10'}`}>
               <div className="flex items-center justify-between">
                 <div>
