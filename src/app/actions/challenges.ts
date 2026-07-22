@@ -178,14 +178,18 @@ export async function respondToChallenge(
     return {};
   }
 
-  // Accept → create match
-  // Copy scheduling info proposed by the challenger
+  // Accept → create match.
+  // Use service client for all writes: the accepting player is on the challenged
+  // team, so auth-client INSERT/UPDATE policies on matches, match_players, and
+  // team_challenges may not grant access for the challenging team's side.
+  const service = createServiceClient();
+
   const hasSchedule = !!challenge.proposed_datetime;
   const scheduledDate = challenge.proposed_datetime
     ? new Date(challenge.proposed_datetime).toISOString().split('T')[0]
     : null;
 
-  const { data: match, error: matchErr } = await supabase
+  const { data: match, error: matchErr } = await service
     .from('matches')
     .insert({
       match_type: challenge.match_type,
@@ -204,15 +208,13 @@ export async function respondToChallenge(
 
   if (matchErr) return { error: matchErr.message };
 
-  // Lock players into match_players — use service client for cross-team reads
-  // (auth client only sees team_members for teams the user belongs to)
-  const service = createServiceClient();
+  // Read members from both teams via service client (bypasses RLS cross-team block)
   const [{ data: teamAMembers }, { data: teamBMembers }] = await Promise.all([
     service.from('team_members').select('player_id').eq('team_id', challenge.challenging_team_id),
     service.from('team_members').select('player_id').eq('team_id', challenge.challenged_team_id),
   ]);
 
-  // Get ratings for all 4 players
+  // Get ratings for all players
   const allPlayerIds = [
     ...(teamAMembers ?? []).map((m) => m.player_id),
     ...(teamBMembers ?? []).map((m) => m.player_id),
@@ -243,10 +245,11 @@ export async function respondToChallenge(
     })),
   ];
 
-  await supabase.from('match_players').insert(matchPlayerRows);
+  const { error: mpErr } = await service.from('match_players').insert(matchPlayerRows);
+  if (mpErr) return { error: mpErr.message };
 
-  // Update challenge
-  await supabase
+  // Update challenge status
+  await service
     .from('team_challenges')
     .update({
       status: 'match_created',
