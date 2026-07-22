@@ -420,7 +420,13 @@ export async function getExploreCandidates(
     const ratingMax = eligibilityRules.find(r => r.rule_key === 'rating_max' && r.rule_mode === 'mandatory')?.rule_value_json as number | undefined;
     const historyRule = eligibilityRules.find(r => r.rule_key === 'match_history' && r.rule_mode === 'mandatory')?.rule_value_json as string | undefined;
     const genderRule = eligibilityRules.find(r => r.rule_key === 'gender_rule' && r.rule_mode === 'mandatory')?.rule_value_json as string | undefined;
-    const requireReady = eligibilityRules.some(r => r.rule_key === 'ready_tonight' && r.rule_mode === 'mandatory');
+    // Require ready status if: (a) explicit mandatory eligibility rule, OR (b) tile has a
+    // ready_tonight ranking signal but no eligibility rule at all — defensive default so
+    // a misconfigured tile never silently shows non-ready teams in a "Ready Tonight" feed.
+    const requireReady =
+      eligibilityRules.some(r => r.rule_key === 'ready_tonight' && r.rule_mode === 'mandatory') ||
+      (rankingRules.some(r => r.signal_key === 'ready_tonight') &&
+        !eligibilityRules.some(r => r.rule_key === 'ready_tonight'));
 
     // Match history for new_rivals / rematches_only
     let playedTeamIds = new Set<string>();
