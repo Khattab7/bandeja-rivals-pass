@@ -179,9 +179,11 @@ export async function respondToChallenge(
   }
 
   // Accept → create match.
-  // Use service client for all writes: the accepting player is on the challenged
-  // team, so auth-client INSERT/UPDATE policies on matches, match_players, and
-  // team_challenges may not grant access for the challenging team's side.
+  // Auth client is used for writes: the accepting player is on the challenged
+  // team and the DB policies allow this (matches_insert: is_team_member(team_b_id),
+  // match_players_insert: is_team_member on the match's teams per migration 016,
+  // team_challenges_update: is_team_member(challenged_team_id)).
+  // Service client is used only for reading the OTHER team's members/profiles.
   const service = createServiceClient();
 
   const hasSchedule = !!challenge.proposed_datetime;
@@ -189,7 +191,7 @@ export async function respondToChallenge(
     ? new Date(challenge.proposed_datetime).toISOString().split('T')[0]
     : null;
 
-  const { data: match, error: matchErr } = await service
+  const { data: match, error: matchErr } = await supabase
     .from('matches')
     .insert({
       match_type: challenge.match_type,
@@ -208,13 +210,13 @@ export async function respondToChallenge(
 
   if (matchErr) return { error: matchErr.message };
 
-  // Read members from both teams via service client (bypasses RLS cross-team block)
+  // Read members from both teams via service client (auth client can't read other team's members)
   const [{ data: teamAMembers }, { data: teamBMembers }] = await Promise.all([
     service.from('team_members').select('player_id').eq('team_id', challenge.challenging_team_id),
     service.from('team_members').select('player_id').eq('team_id', challenge.challenged_team_id),
   ]);
 
-  // Get ratings for all players
+  // Get ratings for all players (service client for cross-team profile reads)
   const allPlayerIds = [
     ...(teamAMembers ?? []).map((m) => m.player_id),
     ...(teamBMembers ?? []).map((m) => m.player_id),
@@ -245,11 +247,11 @@ export async function respondToChallenge(
     })),
   ];
 
-  const { error: mpErr } = await service.from('match_players').insert(matchPlayerRows);
+  const { error: mpErr } = await supabase.from('match_players').insert(matchPlayerRows);
   if (mpErr) return { error: mpErr.message };
 
   // Update challenge status
-  await service
+  await supabase
     .from('team_challenges')
     .update({
       status: 'match_created',
