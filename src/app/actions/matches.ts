@@ -3,18 +3,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendNotificationToMany, getTeamRecipients } from '@/lib/notifications';
+import { VALID_SCORES, type SetInput } from '@/lib/score-types';
 
-// ── Score helpers ───────────────────────────────────────────────
-// Valid winner-games and loser-games combinations
-export const VALID_SCORES: Array<{ winnerGames: number; loserGames: number; label: string }> = [
-  { winnerGames: 6, loserGames: 0, label: '6-0' },
-  { winnerGames: 6, loserGames: 1, label: '6-1' },
-  { winnerGames: 6, loserGames: 2, label: '6-2' },
-  { winnerGames: 6, loserGames: 3, label: '6-3' },
-  { winnerGames: 6, loserGames: 4, label: '6-4' },
-  { winnerGames: 7, loserGames: 5, label: '7-5' },
-  { winnerGames: 7, loserGames: 6, label: '7-6' },
-];
+export type { SetInput } from '@/lib/score-types';
 
 function getScenarioIndex(winnerSide: 'A' | 'B', winnerGames: number, loserGames: number): number | null {
   const key = `${winnerGames}-${loserGames}`;
@@ -33,13 +24,6 @@ function scenarioLabel(index: number): string {
     8:'B 7-6', 9:'B 7-5', 10:'B 6-4', 11:'B 6-3', 12:'B 6-2', 13:'B 6-1', 14:'B 6-0',
   };
   return labels[index] ?? String(index);
-}
-
-// ── Score set input ─────────────────────────────────────────────
-export interface SetInput {
-  winnerSide: 'my_team' | 'opponent';  // resolved to A/B in the action
-  winnerGames: number;
-  loserGames: number;
 }
 
 export interface SubmitScoreData {

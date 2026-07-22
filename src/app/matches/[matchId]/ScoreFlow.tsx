@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitScore, confirmScore, rejectScore, withdrawSubmission, VALID_SCORES, type SetInput } from '@/app/actions/matches';
+import { submitScore, confirmScore, rejectScore, withdrawSubmission } from '@/app/actions/matches';
+import { VALID_SCORES, type SetInput } from '@/lib/score-types';
 
 const G = { fontFamily: 'Gobold, Barlow Condensed, Arial Narrow, Arial, sans-serif' };
 const I = { fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif' };
