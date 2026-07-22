@@ -54,7 +54,8 @@ export default function ExploreFeed({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [selectedTeamId, setSelectedTeamId] = useState(initialTeamId);
+  // Use the prop directly so the outer DiscoveryFeed team selector drives this feed.
+  const selectedTeamId = initialTeamId;
 
   const [view, setView] = useState<View>('home');
   const [tiles, setTiles] = useState<ExploreTileCard[]>([]);
@@ -214,23 +215,6 @@ export default function ExploreFeed({
 
   return (
     <div className="flex-1 flex flex-col">
-
-      {/* ── Team selector ────────────────────────────────── */}
-      {teams.length > 1 && (
-        <div className="px-4 pt-4 pb-2 border-b border-white/10">
-          <p className="text-white/40 text-[9px] tracking-widest uppercase mb-2" style={G}>Browsing As</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {teams.map(t => (
-              <button key={t.id} onClick={() => setSelectedTeamId(t.id)}
-                className={`shrink-0 px-3 py-2 text-[10px] tracking-widest uppercase border transition-colors ${t.id === selectedTeamId ? 'border-brand-green bg-brand-green/10 text-brand-green' : 'border-white/20 text-white/50 hover:border-white/40'}`}
-                style={G}>
-                {t.name ?? t.auto_name ?? 'Team'}
-                <span className="ml-1.5 text-white/30">{t.cached_current_team_rating}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Home: tile grid ──────────────────────────────── */}
       {view === 'home' && (
