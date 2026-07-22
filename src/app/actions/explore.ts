@@ -676,17 +676,18 @@ export async function markTeamReadyTonight(
   durationHours: number = 4,
 ): Promise<{ error?: string }> {
   try {
-    const { supabase, profile } = await getPlayerAndTeam(teamId);
+    const { profile } = await getPlayerAndTeam(teamId);
+    // Use service client: membership already verified above; RLS only allows captains to write.
+    const service = createServiceClient();
 
-    // Cancel any existing active status first
-    await supabase
+    await service
       .from('team_ready_statuses')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('team_id', teamId)
       .eq('status', 'active');
 
     const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
-    const { error } = await supabase.from('team_ready_statuses').insert({
+    const { error } = await service.from('team_ready_statuses').insert({
       team_id: teamId,
       readiness_type: 'ready_tonight',
       status: 'active',
@@ -704,8 +705,9 @@ export async function markTeamReadyTonight(
 
 export async function cancelTeamReadyTonight(teamId: string): Promise<{ error?: string }> {
   try {
-    const { supabase } = await getPlayerAndTeam(teamId);
-    await supabase
+    await getPlayerAndTeam(teamId);
+    const service = createServiceClient();
+    await service
       .from('team_ready_statuses')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('team_id', teamId)
