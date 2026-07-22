@@ -178,87 +178,16 @@ export async function respondToChallenge(
     return {};
   }
 
-  // Accept → create match.
-  // Auth client is used for writes: the accepting player is on the challenged
-  // team and the DB policies allow this (matches_insert: is_team_member(team_b_id),
-  // match_players_insert: is_team_member on the match's teams per migration 016,
-  // team_challenges_update: is_team_member(challenged_team_id)).
-  // Service client is used only for reading the OTHER team's members/profiles.
-  const service = createServiceClient();
-
-  const hasSchedule = !!challenge.proposed_datetime;
-  const scheduledDate = challenge.proposed_datetime
-    ? new Date(challenge.proposed_datetime).toISOString().split('T')[0]
-    : null;
-
-  const { data: match, error: matchErr } = await supabase
-    .from('matches')
-    .insert({
-      match_type: challenge.match_type,
-      status: hasSchedule ? 'scheduled' : 'scheduled_tbd',
-      source_type: 'team_challenge',
-      source_id: challenge_id,
-      team_a_id: challenge.challenging_team_id,
-      team_b_id: challenge.challenged_team_id,
-      created_by: profile.id,
-      city: challenge.city ?? null,
-      area: challenge.area ?? null,
-      scheduled_date: scheduledDate,
-    })
-    .select('id')
-    .single();
-
-  if (matchErr) return { error: matchErr.message };
-
-  // Read members from both teams via service client (auth client can't read other team's members)
-  const [{ data: teamAMembers }, { data: teamBMembers }] = await Promise.all([
-    service.from('team_members').select('player_id').eq('team_id', challenge.challenging_team_id),
-    service.from('team_members').select('player_id').eq('team_id', challenge.challenged_team_id),
-  ]);
-
-  // Get ratings for all players (service client for cross-team profile reads)
-  const allPlayerIds = [
-    ...(teamAMembers ?? []).map((m) => m.player_id),
-    ...(teamBMembers ?? []).map((m) => m.player_id),
-  ];
-  const { data: playerRatings } = allPlayerIds.length > 0
-    ? await service.from('player_profiles').select('id, current_rating').in('id', allPlayerIds)
-    : { data: [] as { id: string; current_rating: number }[] };
-
-  const ratingById: Record<string, number> = {};
-  for (const p of playerRatings ?? []) ratingById[p.id] = p.current_rating;
-
-  const matchPlayerRows = [
-    ...(teamAMembers ?? []).map((m, i) => ({
-      match_id: match.id,
-      team_id: challenge.challenging_team_id,
-      player_id: m.player_id,
-      side: 'A' as const,
-      slot: (i === 0 ? 'player_1' : 'player_2') as 'player_1' | 'player_2',
-      player_rating_at_match_creation: ratingById[m.player_id] ?? 500,
-    })),
-    ...(teamBMembers ?? []).map((m, i) => ({
-      match_id: match.id,
-      team_id: challenge.challenged_team_id,
-      player_id: m.player_id,
-      side: 'B' as const,
-      slot: (i === 0 ? 'player_1' : 'player_2') as 'player_1' | 'player_2',
-      player_rating_at_match_creation: ratingById[m.player_id] ?? 500,
-    })),
-  ];
-
-  const { error: mpErr } = await supabase.from('match_players').insert(matchPlayerRows);
-  if (mpErr) return { error: mpErr.message };
-
-  // Update challenge status
-  await supabase
-    .from('team_challenges')
-    .update({
-      status: 'match_created',
-      match_id: match.id,
-      responded_at: new Date().toISOString(),
-    })
-    .eq('id', challenge_id);
+  // Accept → delegate the entire match-creation to a SECURITY DEFINER RPC.
+  // The function runs as the DB owner (bypasses all RLS), validates the caller
+  // is on the challenged team internally, then atomically creates the match,
+  // locks match_players for both teams, and marks the challenge as match_created.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: matchId, error: acceptErr } = await (supabase as any).rpc('accept_team_challenge', {
+    p_challenge_id: challenge_id,
+  });
+  if (acceptErr) return { error: acceptErr.message };
+  const match = { id: matchId as string };
 
   // Notify challenging team: accepted + match created
   try {
