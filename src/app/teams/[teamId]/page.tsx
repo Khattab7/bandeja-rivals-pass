@@ -1,4 +1,4 @@
-import { redirect, notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import BandejaLogo from '@/components/BandejaLogo';
 import BottomNav from '@/components/BottomNav';
@@ -34,7 +34,7 @@ export default async function TeamDetailPage({
     .eq('player_id', profile.id)
     .single();
 
-  if (!myMembership) notFound();
+  if (!myMembership) redirect('/teams');
 
   const { data: team } = await supabase
     .from('teams')
@@ -42,7 +42,7 @@ export default async function TeamDetailPage({
     .eq('id', teamId)
     .single();
 
-  if (!team) notFound();
+  if (!team) redirect('/teams');
 
   // Get all members
   const { data: memberRows } = await supabase
